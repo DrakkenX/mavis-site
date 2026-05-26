@@ -1,0 +1,34 @@
+:root {
+  /* MAVIS Color Palette — Pop Mart × Igloo cream luxury */
+
+  /* Foundation creams */
+  --mavis-cream-50: #fdfcfa;
+  --mavis-cream-100: #faf6f0;
+  --mavis-cream-200: #f4ece0;
+  --mavis-cream-300: #ead9c2;
+
+  /* Warm accents */
+  --mavis-blush-100: #fce8e6;
+  --mavis-blush-200: #f8d4d0;
+  --mavis-peach-100: #fde4d0;
+
+  /* Text */
+  --mavis-ink-900: #1a1612;
+  --mavis-ink-700: #4a3f35;
+  --mavis-ink-500: #8a7d6e;
+  --mavis-ink-300: #c2b5a5;
+
+  /* Brand accents */
+  --mavis-gold: #c8a25a;
+  --mavis-rose: #d4928b;
+  --mavis-sky: #b8d4e3;
+
+  /* Functional */
+  --mavis-glass: rgba(253, 252, 250, 0.6);
+}
+
+body {
+  background: var(--mavis-cream-50);
+  color: var(--mavis-ink-900);
+  -webkit-font-smoothing: antialiased;
+}
