@@ -1,34 +1,28 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { ContactShadows, Environment } from '@react-three/drei';
-import { useRef } from 'react';
+import { ContactShadows, Environment, useGLTF } from '@react-three/drei';
+import { useRef, Suspense } from 'react';
 import * as THREE from 'three';
 
-function MavisPlaceholder() {
-  const meshRef = useRef<THREE.Mesh>(null);
+useGLTF.preload('/models/mavis.glb');
+
+function MavisModel() {
+  const meshRef = useRef<THREE.Group>(null);
+  const { scene } = useGLTF('/models/mavis.glb');
 
   useFrame((state) => {
     if (!meshRef.current) return;
     // Gentle floating
-    meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 1.5) * 0.08;
+    meshRef.current.position.y = -0.5 + Math.sin(state.clock.elapsedTime * 1.5) * 0.08;
     // Slow rotation
     meshRef.current.rotation.y += 0.002;
   });
 
   return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <sphereGeometry args={[1, 64, 64]} />
-      <meshPhysicalMaterial
-        color="#fdfcfa"
-        roughness={0.85}
-        metalness={0}
-        clearcoat={0.1}
-        sheen={0.5}
-        sheenColor="#fde4d0"
-        sheenRoughness={1}
-      />
-    </mesh>
+    <group ref={meshRef} scale={[1, 1, 1]}>
+      <primitive object={scene} />
+    </group>
   );
 }
 
@@ -40,30 +34,17 @@ export default function MavisCanvas() {
       style={{ background: 'transparent' }}
     >
       {/* Key light */}
-      <directionalLight
-        position={[5, 5, 5]}
-        intensity={1.2}
-        color="#fff5e6"
-      />
-
+      <directionalLight position={[5, 5, 5]} intensity={1.2} color="#fff5e6" />
       {/* Fill light */}
-      <directionalLight
-        position={[-5, 3, 2]}
-        intensity={0.4}
-        color="#e6f0ff"
-      />
-
+      <directionalLight position={[-5, 3, 2]} intensity={0.4} color="#e6f0ff" />
       {/* Rim light */}
-      <directionalLight
-        position={[0, 2, -5]}
-        intensity={0.3}
-        color="#c8a25a"
-      />
-
+      <directionalLight position={[0, 2, -5]} intensity={0.3} color="#c8a25a" />
       {/* Ambient */}
       <ambientLight intensity={0.5} color="#ffffff" />
 
-      <MavisPlaceholder />
+      <Suspense fallback={null}>
+        <MavisModel />
+      </Suspense>
 
       <ContactShadows
         position={[0, -1.5, 0]}

@@ -1,32 +1,26 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { ContactShadows, Environment } from '@react-three/drei';
-import { useRef } from 'react';
+import { ContactShadows, Environment, useGLTF } from '@react-three/drei';
+import { useRef, Suspense } from 'react';
 import * as THREE from 'three';
 
-function CharacterSphere({ scrollY }: { scrollY: number }) {
-  const meshRef = useRef<THREE.Mesh>(null);
+useGLTF.preload('/models/mavis.glb');
+
+function CharacterModel({ scrollY }: { scrollY: number }) {
+  const meshRef = useRef<THREE.Group>(null);
+  const { scene } = useGLTF('/models/mavis.glb');
 
   useFrame((state) => {
     if (!meshRef.current) return;
-    meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 1.2) * 0.06;
+    meshRef.current.position.y = -0.5 + Math.sin(state.clock.elapsedTime * 1.2) * 0.06;
     meshRef.current.rotation.y = scrollY * 0.002 + state.clock.elapsedTime * 0.001;
   });
 
   return (
-    <mesh ref={meshRef} position={[0, 0, 0]}>
-      <sphereGeometry args={[1.2, 64, 64]} />
-      <meshPhysicalMaterial
-        color="#fdfcfa"
-        roughness={0.8}
-        metalness={0}
-        clearcoat={0.15}
-        sheen={0.6}
-        sheenColor="#fde4d0"
-        sheenRoughness={0.9}
-      />
-    </mesh>
+    <group ref={meshRef} scale={[1.2, 1.2, 1.2]}>
+      <primitive object={scene} />
+    </group>
   );
 }
 
@@ -46,7 +40,9 @@ export default function CharacterCanvas({ scrollY = 0 }: { scrollY?: number }) {
       {/* Ambient */}
       <ambientLight intensity={0.4} color="#fff8f0" />
 
-      <CharacterSphere scrollY={scrollY} />
+      <Suspense fallback={null}>
+        <CharacterModel scrollY={scrollY} />
+      </Suspense>
 
       <ContactShadows
         position={[0, -1.4, 0]}
