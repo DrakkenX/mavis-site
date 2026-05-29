@@ -33,18 +33,18 @@ export default function Manifesto() {
       // Stage 0: section fades in
       tl.fromTo(sectionRef.current, { opacity: 0.6 }, { opacity: 1, duration: 0.1 });
 
-      // Stage 1 (0–30%): lines stagger up
-      tl.fromTo(line1Ref.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }, 0.05);
-      tl.fromTo(line2Ref.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }, 0.15);
-      tl.fromTo(line3Ref.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }, 0.25);
+      // Stage 1 (0–30%): lines settle into place — 8px travel, not 16. Feels inevitable, not theatrical.
+      tl.fromTo(line1Ref.current, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }, 0.05);
+      tl.fromTo(line2Ref.current, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }, 0.15);
+      tl.fromTo(line3Ref.current, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.2, ease: 'power2.out' }, 0.25);
 
-      // Stage 2 (30–60%): heading scales, body fades in
+      // Stage 2 (30–60%): heading scales, body arrives — 12px travel (halved from 24)
       tl.to(headingRef.current, { scale: 0.96, duration: 0.2, ease: 'power1.inOut' }, 0.35);
-      tl.fromTo(bodyRef.current, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' }, 0.38);
+      tl.fromTo(bodyRef.current, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' }, 0.38);
 
-      // Stage 3 (60–90%): signature fades in, heading blurs
+      // Stage 3 (60–90%): signature fades in, heading blurs — capped at 4px (atmospheric, not trashy)
       tl.fromTo(sigRef.current, { opacity: 0 }, { opacity: 1, duration: 0.15 }, 0.62);
-      tl.to(headingRef.current, { filter: 'blur(6px)', duration: 0.2 }, 0.65);
+      tl.to(headingRef.current, { filter: 'blur(4px)', duration: 0.2 }, 0.65);
 
       // Stage 4 (90–100%): whole section recedes
       tl.to(sectionRef.current, { opacity: 0.4, duration: 0.1 }, 0.9);
