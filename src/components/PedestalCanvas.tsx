@@ -47,6 +47,8 @@ export default function PedestalCanvas() {
     >
       <directionalLight position={[0, 6, 2]} intensity={1.4} color="#fff8f0" />
       <directionalLight position={[-3, 2, 2]} intensity={0.3} color="#fce8e6" />
+      {/* Cool directional from directly above — differentiates Moment 3 as the coldest beat */}
+      <directionalLight position={[0, 5, 0]} intensity={0.6} color="#e6f0ff" />
       <ambientLight intensity={0.5} color="#ffffff" />
 
       <Pedestal />

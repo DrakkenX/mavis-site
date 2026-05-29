@@ -19,7 +19,6 @@ export default function Universe() {
   const sectionRef = useRef<HTMLElement>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
   const particle1Ref = useRef<HTMLDivElement>(null);
-  const particle2Ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -71,24 +70,46 @@ export default function Universe() {
         style={{ width: 'max-content' }}
       >
 
-        {/* MOMENT 1 — Title plate */}
-        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-cream-50 via-mavis-cream-100 to-mavis-cream-50 px-8 text-center">
-          <div className="font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500 mb-10">
-            Chapter III · The Folio Universe
-          </div>
-          <h2
-            className="font-display font-light text-mavis-ink-900 leading-[0.95] tracking-[-0.02em]"
-            style={{ fontSize: 'clamp(56px, 9vw, 136px)' }}
+        {/* MOMENT 1 — Title plate: pure cream-50, content 15% above center, gold line */}
+        <div className="relative flex-none w-screen h-screen bg-mavis-cream-50 px-8">
+          {/* Content pinned at 35vh (15% above 50vh center) */}
+          <div
+            className="absolute left-1/2 text-center"
+            style={{ top: '35%', transform: 'translate(-50%, -50%)', width: 'max-content', maxWidth: '90vw' }}
           >
-            <span className="block">A world made</span>
-            <span className="block italic">one creature</span>
-            <span className="block">at a time.</span>
-          </h2>
+            <div className="font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500 mb-10">
+              Chapter III · The Folio Universe
+            </div>
+            <h2
+              className="font-display font-light text-mavis-ink-900 leading-[0.95] tracking-[-0.02em]"
+              style={{ fontSize: 'clamp(56px, 9vw, 136px)' }}
+            >
+              <span className="block">A world made</span>
+              <span className="block italic">one creature</span>
+              <span className="block">at a time.</span>
+            </h2>
+            {/* Gold chapter-open line — 32px below subtitle */}
+            <div
+              aria-hidden="true"
+              style={{
+                width: 80,
+                height: 1,
+                backgroundColor: 'var(--mavis-gold)',
+                opacity: 0.4,
+                margin: '32px auto 0',
+              }}
+            />
+          </div>
         </div>
 
-        {/* MOMENT 2 — MAVIS in mist */}
-        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-peach-100 via-mavis-cream-100 to-mavis-peach-100 px-8">
-          {/* Particles */}
+        {/* MOMENT 2 — MAVIS in mist: warmer radial gradient, halved particle speed */}
+        <div
+          className="relative flex-none w-screen h-screen flex flex-col items-center justify-center px-8"
+          style={{
+            background: 'radial-gradient(ellipse 70% 70% at 50% 50%, var(--mavis-cream-100) 0%, var(--mavis-peach-100) 40%, var(--mavis-cream-50) 100%)',
+          }}
+        >
+          {/* Particles — tinted peach-100, drift speed halved (2× duration) */}
           <div ref={particle1Ref} className="absolute inset-0 pointer-events-none overflow-hidden">
             {Array.from({ length: 12 }).map((_, i) => (
               <div
@@ -100,7 +121,7 @@ export default function Universe() {
                   left: `${8 + i * 7.5}%`,
                   top: `${15 + (i % 5) * 14}%`,
                   opacity: 0.4,
-                  animation: `particleFloat ${5 + (i % 4)}s ease-in-out ${i * 0.4}s infinite alternate`,
+                  animation: `particleFloat ${(5 + (i % 4)) * 2}s ease-in-out ${i * 0.4}s infinite alternate`,
                 }}
               />
             ))}
@@ -122,25 +143,16 @@ export default function Universe() {
           </div>
         </div>
 
-        {/* MOMENT 3 — Empty pedestal */}
+        {/* MOMENT 3 — Empty pedestal: coldest/stillest — no particles, sky tint, cool light in PedestalCanvas */}
         <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100 via-mavis-cream-100 to-mavis-blush-100 px-8">
-          {/* Particles */}
-          <div ref={particle2Ref} className="absolute inset-0 pointer-events-none overflow-hidden">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div
-                key={i}
-                className="absolute rounded-full bg-mavis-blush-200"
-                style={{
-                  width: `${2 + (i % 2)}px`,
-                  height: `${2 + (i % 2)}px`,
-                  left: `${10 + i * 8}%`,
-                  top: `${20 + (i % 4) * 16}%`,
-                  opacity: 0.35,
-                  animation: `particleFloat ${4 + (i % 3)}s ease-in-out ${i * 0.5}s infinite alternate`,
-                }}
-              />
-            ))}
-          </div>
+          {/* Sky-100 radial overlay — subtle cool tint from above, 8% opacity */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'radial-gradient(ellipse 100% 40% at 50% 0%, rgba(184,212,227,0.08) 0%, transparent 100%)',
+            }}
+          />
 
           <div className="w-[300px] h-[340px] relative z-10 mystery-pulse">
             <PedestalCanvas />
@@ -158,8 +170,8 @@ export default function Universe() {
           </div>
         </div>
 
-        {/* MOMENT 4 — Folio promise */}
-        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-cream-50 via-mavis-cream-100 to-mavis-cream-50 px-8 text-center">
+        {/* MOMENT 4 — Folio promise: pure cream-50, grounded close */}
+        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-mavis-cream-50 px-8 text-center">
           <h2
             className="font-display font-light text-mavis-ink-900 leading-[1.05] tracking-[-0.02em] mb-10"
             style={{ fontSize: 'clamp(36px, 5vw, 76px)' }}
@@ -168,8 +180,21 @@ export default function Universe() {
             <span className="block">Twelve stories.</span>
             <span className="block italic">One folio.</span>
           </h2>
-          <div className="font-mono text-[11px] tracking-[0.32em] uppercase text-mavis-ink-500">
-            Stay close.
+          {/* Chapter-close signature — 4px gold dot + em-dash */}
+          <div className="font-mono text-[11px] tracking-[0.32em] uppercase text-mavis-ink-500 flex items-center justify-center">
+            <span
+              aria-hidden="true"
+              style={{
+                display: 'inline-block',
+                width: 4,
+                height: 4,
+                borderRadius: '50%',
+                backgroundColor: 'var(--mavis-gold)',
+                marginRight: 8,
+                flexShrink: 0,
+              }}
+            />
+            <span>&#8212;&ensp;Stay close.</span>
           </div>
         </div>
 
