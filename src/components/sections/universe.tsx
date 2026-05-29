@@ -26,6 +26,11 @@ export default function Universe() {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) return;
 
+    // Mobile: skip horizontal scroll-jack entirely.
+    // Horizontal scroll on touch = broken UX. Moments stack vertically instead.
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) return;
+
     const ctx = gsap.context(() => {
       const panorama = panoramaRef.current;
       if (!panorama) return;
@@ -63,10 +68,13 @@ export default function Universe() {
       className="relative overflow-hidden bg-mavis-cream-50"
       style={{ minHeight: '150vh' }}
     >
-      {/* Horizontal panorama */}
+      {/* Panorama
+          Desktop: flex-row h-screen, GSAP translates horizontally
+          Mobile:  flex-col, 4 moments stack vertically — no GSAP needed
+      */}
       <div
         ref={panoramaRef}
-        className="flex h-screen will-change-transform"
+        className="flex flex-col md:flex-row md:h-screen will-change-transform"
         style={{ width: 'max-content' }}
       >
 

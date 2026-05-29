@@ -50,6 +50,7 @@ export default function Character() {
     gsap.registerPlugin(ScrollTrigger);
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isMobile = window.innerWidth < 768;
 
     // Track scroll for MAVIS rotation
     const onScroll = () => setScrollY(window.scrollY);
@@ -58,16 +59,19 @@ export default function Character() {
     if (prefersReduced) return () => window.removeEventListener('scroll', onScroll);
 
     const ctx = gsap.context(() => {
-      // Pin canvas during Act 1
-      ScrollTrigger.create({
-        trigger: sectionRef.current,
-        start: 'top top',
-        end: () => `+=${window.innerHeight}`,
-        pin: canvasWrapRef.current,
-        pinSpacing: false,
-      });
+      // Pin canvas during Act 1 — desktop only.
+      // On mobile the sticky split stacks vertically; no pin needed.
+      if (!isMobile) {
+        ScrollTrigger.create({
+          trigger: sectionRef.current,
+          start: 'top top',
+          end: () => `+=${window.innerHeight}`,
+          pin: canvasWrapRef.current,
+          pinSpacing: false,
+        });
+      }
 
-      // Trait cards stagger in when Act 2 enters
+      // Trait cards stagger in when Act 2 enters — all breakpoints
       if (cardsRef.current) {
         const cards = cardsRef.current.querySelectorAll('.trait-card');
         gsap.fromTo(
@@ -100,13 +104,20 @@ export default function Character() {
       className="relative bg-gradient-to-b from-mavis-cream-100 via-mavis-cream-50 to-mavis-cream-100"
       style={{ minHeight: '200vh' }}
     >
-      {/* ACT 1 — Portrait */}
-      <div className="sticky top-0 h-screen overflow-hidden">
-        <div className="flex h-full">
+      {/* ACT 1 — Portrait
+          Desktop: sticky split (canvas left / text right)
+          Mobile:  vertical stack (canvas top / text below), no sticky
+      */}
+      <div className="overflow-hidden md:sticky md:top-0 md:h-screen">
+        <div className="flex flex-col md:flex-row md:h-full">
 
-          {/* Left — 3D canvas */}
-          <div ref={canvasWrapRef} className="relative w-1/2 h-full flex items-center justify-center">
-            {/* Cream mist behind MAVIS */}
+          {/* Canvas: min(55vh,80vw) tall on mobile, full-height on desktop.
+              Tailwind arbitrary value (not inline style) so md:h-full wins via CSS order. */}
+          <div
+            ref={canvasWrapRef}
+            className="relative w-full h-[min(55vh,80vw)] md:w-1/2 md:h-full flex items-center justify-center"
+          >
+            {/* Cream mist */}
             <div className="absolute inset-0 pointer-events-none" style={{
               background: 'radial-gradient(ellipse 70% 70% at 50% 50%, var(--mavis-cream-200) 0%, transparent 70%)',
             }} />
@@ -115,8 +126,8 @@ export default function Character() {
             </div>
           </div>
 
-          {/* Right — text */}
-          <div className="w-1/2 h-full flex flex-col justify-center px-12 lg:px-16 xl:px-20">
+          {/* Text: full-width on mobile, right-half on desktop */}
+          <div className="w-full md:w-1/2 md:h-full flex flex-col justify-center px-8 py-10 md:px-12 lg:px-16 xl:px-20">
             <div className="font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500 mb-10">
               Chapter II · Character
             </div>

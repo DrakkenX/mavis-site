@@ -31,6 +31,7 @@ export default function MavisCanvas() {
     <Canvas
       camera={{ position: [0, 0, 4], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
+      dpr={[1, 1.5]}
       style={{ background: 'transparent' }}
     >
       {/* Key light */}

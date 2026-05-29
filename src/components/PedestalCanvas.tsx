@@ -43,6 +43,8 @@ export default function PedestalCanvas() {
     <Canvas
       camera={{ position: [0, 0.5, 3.5], fov: 32 }}
       gl={{ antialias: true, alpha: true }}
+      dpr={[1, 1.5]}
+      frameloop="demand"
       style={{ background: 'transparent' }}
     >
       <directionalLight position={[0, 6, 2]} intensity={1.4} color="#fff8f0" />

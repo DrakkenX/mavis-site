@@ -142,6 +142,7 @@ export default function TraitCanvas({ mood, hovered = false }: TraitCanvasProps)
       <Canvas
         camera={{ position: [0, 0.3, 2.8], fov: 30 }}
         gl={{ antialias: true, alpha: true }}
+        dpr={[1, 1.5]}
         style={{ background: 'transparent', width: '100%', height: '100%' }}
       >
         <Suspense fallback={null}>
