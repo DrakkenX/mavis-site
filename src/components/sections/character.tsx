@@ -4,26 +4,36 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import type { Mood } from '@/components/TraitCanvas';
 
 const CharacterCanvas = dynamic(() => import('@/components/CharacterCanvas'), {
   ssr: false,
   loading: () => <div className="w-full h-full" />,
 });
 
-const traits = [
+const TraitCanvas = dynamic(() => import('@/components/TraitCanvas'), {
+  ssr: false,
+  // Preserve 96×96 space during JS load — no layout shift
+  loading: () => <div style={{ width: 96, height: 96, flexShrink: 0 }} />,
+});
+
+const traits: Array<{ label: string; name: string; mood: Mood; body: string }> = [
   {
     label: 'TRAIT 01',
     name: 'Quiet.',
+    mood: 'quiet',
     body: 'Mavis doesn\'t speak. They don\'t need to. The presence is the conversation, and the silence is the answer.',
   },
   {
     label: 'TRAIT 02',
     name: 'Curious.',
+    mood: 'curious',
     body: 'Mavis is always slightly turned toward you, as if you just said something interesting. You didn\'t. That\'s the trick.',
   },
   {
     label: 'TRAIT 03',
     name: 'Patient.',
+    mood: 'patient',
     body: 'Mavis has been waiting longer than you have. Not for anything in particular. Just waiting, in the way that ancient things wait.',
   },
 ];
@@ -34,6 +44,7 @@ export default function Character() {
   const act2Ref = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
   const [scrollY, setScrollY] = useState(0);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -153,21 +164,43 @@ export default function Character() {
       <div ref={act2Ref} className="relative bg-gradient-to-b from-mavis-cream-100 to-mavis-cream-200">
         <div className="max-w-[1280px] mx-auto px-8 py-32">
           <div ref={cardsRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {traits.map((trait) => (
+            {traits.map((trait, i) => (
               <div
                 key={trait.label}
-                className="trait-card group flex flex-col gap-6 p-10 bg-mavis-cream-50 opacity-0 transition-all duration-300 ease-out hover:-translate-y-1"
-                style={{ boxShadow: '0 2px 24px 0 rgba(26,22,18,0.04)' }}
+                className="trait-card flex flex-col gap-4 opacity-0 bg-mavis-cream-100 rounded-[12px]"
+                style={{
+                  padding: '32px 24px',
+                  border: '1px solid var(--mavis-cream-300)',
+                  // GSAP owns opacity + y-transform on entrance.
+                  // React owns box-shadow + hover-lift (runs after entrance completes).
+                  boxShadow: hoveredIdx === i
+                    ? '0 12px 32px -8px rgba(26,22,18,0.08)'
+                    : '0 2px 12px 0 rgba(26,22,18,0.04)',
+                  transform: hoveredIdx === i ? 'translateY(-4px)' : 'translateY(0px)',
+                  transition: 'transform 400ms cubic-bezier(0.16,1,0.3,1), box-shadow 400ms cubic-bezier(0.16,1,0.3,1)',
+                }}
+                onMouseEnter={() => setHoveredIdx(i)}
+                onMouseLeave={() => setHoveredIdx(null)}
               >
+                {/* Mood canvas — 96×96, centered */}
+                <div className="flex justify-center">
+                  <TraitCanvas mood={trait.mood} hovered={hoveredIdx === i} />
+                </div>
+
+                {/* Geist Mono label */}
                 <span className="font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500">
                   {trait.label}
                 </span>
+
+                {/* Fraunces name */}
                 <h3
                   className="font-display italic font-light text-mavis-ink-900 leading-[1.0]"
                   style={{ fontSize: 'clamp(32px, 3vw, 48px)' }}
                 >
                   {trait.name}
                 </h3>
+
+                {/* Fraunces body */}
                 <p
                   className="font-display text-mavis-ink-700 leading-[1.6]"
                   style={{ fontSize: 'clamp(15px, 1.1vw, 17px)' }}
