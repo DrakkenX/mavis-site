@@ -48,7 +48,7 @@ function InteractivePedestal() {
   return (
     <div
       ref={momentRef}
-      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100 via-mavis-cream-100 to-mavis-blush-100 px-8"
+      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100 via-mavis-cream-100 to-mavis-blush-100 px-8 cursor-pointer md:cursor-default"
       onMouseEnter={() => { if (!isMobile) activate(); }}
       onMouseLeave={() => { if (!isMobile) deactivate(); }}
       onClick={() => { if (isMobile) { revealed ? deactivate() : activate(); } }}

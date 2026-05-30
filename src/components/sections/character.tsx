@@ -178,7 +178,7 @@ export default function Character() {
             {traits.map((trait, i) => (
               <div
                 key={trait.label}
-                className="trait-card flex flex-col gap-4 opacity-0 bg-mavis-cream-100 rounded-[12px]"
+                className="trait-card flex flex-col gap-4 opacity-0 bg-mavis-cream-100 rounded-[12px] cursor-pointer"
                 style={{
                   padding: '32px 24px',
                   border: '1px solid var(--mavis-cream-300)',
