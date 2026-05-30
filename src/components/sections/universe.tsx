@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -14,6 +15,117 @@ const PedestalCanvas = dynamic(() => import('@/components/PedestalCanvas'), {
   ssr: false,
   loading: () => <div className="w-full h-full" />,
 });
+
+// ─── Moment 3: Interactive pedestal reveal ────────────────────────────────────
+
+function InteractivePedestal() {
+  const [revealed, setRevealed] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const momentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+
+    // Reset revealed when this moment leaves the viewport (mobile scroll-away).
+    // On desktop, onMouseLeave handles deactivation — observer is belt-and-suspenders.
+    const el = momentRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (!entry.isIntersecting) setRevealed(false); },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const activate = () => {
+    setRevealed(true);
+    if (!hasInteracted) setHasInteracted(true);
+  };
+  const deactivate = () => setRevealed(false);
+
+  return (
+    <div
+      ref={momentRef}
+      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100 via-mavis-cream-100 to-mavis-blush-100 px-8"
+      onMouseEnter={() => { if (!isMobile) activate(); }}
+      onMouseLeave={() => { if (!isMobile) deactivate(); }}
+      onClick={() => { if (isMobile) { revealed ? deactivate() : activate(); } }}
+    >
+      {/* Static sky overlay from Day 3 — cool tint from above */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 100% 40% at 50% 0%, rgba(184,212,227,0.08) 0%, transparent 100%)',
+        }}
+      />
+
+      {/* Sky glow bloom — appears 150ms after hover/tap, reads as overhead light revealing something */}
+      <motion.div
+        aria-hidden="true"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: revealed ? 1 : 0 }}
+        transition={{
+          duration: revealed ? 1.2 : 0.9,
+          delay: revealed ? 0.15 : 0,
+          ease: [0.16, 1, 0.3, 1],
+        }}
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse 55% 40% at 50% 28%, rgba(184,212,227,0.18) 0%, transparent 100%)',
+        }}
+      />
+
+      {/* Canvas — mystery-pulse removed while revealed (steady reveal, not pulsing) */}
+      <div className={`w-[300px] h-[340px] relative z-10${revealed ? '' : ' mystery-pulse'}`}>
+        <PedestalCanvas revealed={revealed} />
+      </div>
+
+      {/* Label + hint */}
+      <div className="mt-10 text-center z-10">
+        {/* "002 · ???" → "002 · UNREVEALED" with color + tracking shift */}
+        <div
+          className="font-mono text-[10px] uppercase mb-2"
+          style={{
+            letterSpacing: revealed ? '0.4em' : '0.32em',
+            color: revealed ? 'var(--mavis-gold)' : 'var(--mavis-ink-500)',
+            transition: 'color 600ms ease, letter-spacing 600ms ease',
+          }}
+        >
+          {revealed ? '002 · UNREVEALED' : '002 · ???'}
+        </div>
+
+        <div
+          className="font-display italic font-light text-mavis-ink-700"
+          style={{ fontSize: 'clamp(22px, 2.2vw, 34px)' }}
+        >
+          Coming.
+        </div>
+
+        {/* Interaction hint — fades out after first interaction */}
+        <motion.p
+          aria-hidden="true"
+          initial={{ opacity: 0.4 }}
+          animate={{ opacity: hasInteracted ? 0 : 0.4 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className="font-mono text-[9px] italic mt-3"
+          style={{
+            letterSpacing: '0.2em',
+            color: 'var(--mavis-cream-300)',
+            pointerEvents: 'none',
+            userSelect: 'none',
+          }}
+        >
+          {isMobile ? 'tap to glimpse' : 'hover to glimpse'}
+        </motion.p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Universe() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -151,32 +263,8 @@ export default function Universe() {
           </div>
         </div>
 
-        {/* MOMENT 3 — Empty pedestal: coldest/stillest — no particles, sky tint, cool light in PedestalCanvas */}
-        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100 via-mavis-cream-100 to-mavis-blush-100 px-8">
-          {/* Sky-100 radial overlay — subtle cool tint from above, 8% opacity */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'radial-gradient(ellipse 100% 40% at 50% 0%, rgba(184,212,227,0.08) 0%, transparent 100%)',
-            }}
-          />
-
-          <div className="w-[300px] h-[340px] relative z-10 mystery-pulse">
-            <PedestalCanvas />
-          </div>
-          <div className="mt-10 text-center z-10">
-            <div className="font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500 mb-2">
-              002 · ???
-            </div>
-            <div
-              className="font-display italic font-light text-mavis-ink-700"
-              style={{ fontSize: 'clamp(22px, 2.2vw, 34px)' }}
-            >
-              Coming.
-            </div>
-          </div>
-        </div>
+        {/* MOMENT 3 — Interactive pedestal reveal */}
+        <InteractivePedestal />
 
         {/* MOMENT 4 — Folio promise: pure cream-50, grounded close */}
         <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-mavis-cream-50 px-8 text-center">
