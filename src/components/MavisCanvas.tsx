@@ -1,7 +1,7 @@
 'use client';
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { ContactShadows, Environment, useGLTF } from '@react-three/drei';
+import { ContactShadows, Environment, Lightformer, useGLTF } from '@react-three/drei';
 import { useRef, Suspense, useState, useEffect } from 'react';
 import * as THREE from 'three';
 
@@ -11,16 +11,12 @@ function MavisModel({ onReady }: { onReady: () => void }) {
   const meshRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF('/models/mavis.glb');
 
-  // Fire once on mount — Suspense only renders this when the GLB is ready.
-  // Stored in a ref so the effect dependency is stable across renders.
   const onReadyRef = useRef(onReady);
   useEffect(() => { onReadyRef.current(); }, []);
 
   useFrame((state) => {
     if (!meshRef.current) return;
-    // Gentle floating
     meshRef.current.position.y = -0.5 + Math.sin(state.clock.elapsedTime * 1.5) * 0.08;
-    // Slow rotation
     meshRef.current.rotation.y += 0.002;
   });
 
@@ -35,9 +31,6 @@ export default function MavisCanvas() {
   const [ready, setReady] = useState(false);
 
   return (
-    // Opacity wrapper: 0 → 1 when the GLB resolves via Suspense.
-    // Handles slow-connection case where the model loads after the Hero
-    // motion.div entrance animation has already completed.
     <div
       style={{
         width: '100%',
@@ -52,28 +45,80 @@ export default function MavisCanvas() {
         dpr={[1, 1.5]}
         style={{ background: 'transparent' }}
       >
-        {/* Key light */}
-        <directionalLight position={[5, 5, 5]} intensity={1.2} color="#fff5e6" />
-        {/* Fill light */}
-        <directionalLight position={[-5, 3, 2]} intensity={0.4} color="#e6f0ff" />
-        {/* Rim light */}
-        <directionalLight position={[0, 2, -5]} intensity={0.3} color="#c8a25a" />
-        {/* Ambient */}
-        <ambientLight intensity={0.5} color="#ffffff" />
+        {/* ─── Cinematic heavenly light rig (hero scale) ─── */}
+
+        {/* Key: warm-white from above-front */}
+        <directionalLight position={[2, 8, 5]} intensity={2.2} color="#fff8ec" />
+
+        {/* Fill: sky tint from below-left — luminous shadows */}
+        <directionalLight position={[-5, -1, 3]} intensity={0.5} color="#b8d4e3" />
+
+        {/* Gold rim from behind — divine edge glow */}
+        <directionalLight position={[0, 2, -6]} intensity={1.2} color="#c8a25a" />
+
+        {/* Ambient: luminous warm base */}
+        <ambientLight intensity={0.7} color="#fff8f0" />
 
         <Suspense fallback={null}>
           <MavisModel onReady={() => setReady(true)} />
         </Suspense>
 
+        {/* Soft warm floor shadow */}
         <ContactShadows
           position={[0, -1.5, 0]}
-          opacity={0.25}
+          opacity={0.12}
           scale={5}
-          blur={2}
+          blur={3.5}
           far={2}
+          color="#c2b5a5"
         />
 
-        <Environment preset="apartment" />
+        {/* ─── Heavenly Environment — Lightformers for premium reflections ─── */}
+        <Environment resolution={256}>
+          {/* Top key ring: heaven-light from above */}
+          <Lightformer
+            form="ring"
+            intensity={3.5}
+            color="#fff8ec"
+            position={[0, 8, 0]}
+            scale={8}
+            rotation={[Math.PI / 2, 0, 0]}
+          />
+          {/* Front cream fill: luminous face */}
+          <Lightformer
+            form="rect"
+            intensity={1.8}
+            color="#fffaf5"
+            position={[0, 2, 8]}
+            scale={[8, 5, 1]}
+          />
+          {/* Gold rim: divine silhouette edge */}
+          <Lightformer
+            form="rect"
+            intensity={2.2}
+            color="#c8a25a"
+            position={[6, 4, -4]}
+            scale={[2, 5, 1]}
+            rotation={[0, -Math.PI / 3, 0]}
+          />
+          {/* Gold rim left */}
+          <Lightformer
+            form="rect"
+            intensity={1.5}
+            color="#d4aa66"
+            position={[-6, 4, -4]}
+            scale={[2, 5, 1]}
+            rotation={[0, Math.PI / 3, 0]}
+          />
+          {/* Sky underlight: cool fill from below */}
+          <Lightformer
+            form="rect"
+            intensity={0.8}
+            color="#b8d4e3"
+            position={[0, -5, 3]}
+            scale={[10, 3, 1]}
+          />
+        </Environment>
       </Canvas>
     </div>
   );
