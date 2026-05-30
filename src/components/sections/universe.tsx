@@ -189,7 +189,12 @@ export default function Universe() {
       >
 
         {/* MOMENT 1 — Title plate: pure cream-50, content 15% above center, gold line */}
-        <div className="relative flex-none w-screen h-screen bg-mavis-cream-50 px-8">
+        {/* Moment 1 bridges from Character Act 2 (cream-200) → cream-50 via gradient.
+            Removes the hard temperature cut between sections. */}
+        <div
+          className="relative flex-none w-screen h-screen px-8"
+          style={{ background: 'linear-gradient(to bottom, var(--mavis-cream-200) 0%, var(--mavis-cream-50) 40%)' }}
+        >
           {/* Content pinned at 35vh (15% above 50vh center) */}
           <div
             className="absolute left-1/2 text-center"
