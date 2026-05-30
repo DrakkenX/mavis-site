@@ -62,19 +62,17 @@ function InteractivePedestal() {
         }}
       />
 
-      {/* Sky glow bloom — appears 150ms after hover/tap, reads as overhead light revealing something */}
-      <motion.div
+      {/* Sky glow bloom — appears 150ms after hover/tap, reads as overhead light revealing something.
+          Plain CSS transition avoids FM12's skip-when-initial-equals-animate-target bug. */}
+      <div
         aria-hidden="true"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: revealed ? 1 : 0 }}
-        transition={{
-          duration: revealed ? 1.2 : 0.9,
-          delay: revealed ? 0.15 : 0,
-          ease: [0.16, 1, 0.3, 1],
-        }}
         className="absolute inset-0 pointer-events-none"
         style={{
           background: 'radial-gradient(ellipse 55% 40% at 50% 28%, rgba(184,212,227,0.18) 0%, transparent 100%)',
+          opacity: revealed ? 1 : 0,
+          transition: revealed
+            ? 'opacity 1200ms cubic-bezier(0.16,1,0.3,1) 150ms'
+            : 'opacity 900ms cubic-bezier(0.16,1,0.3,1) 0ms',
         }}
       />
 
