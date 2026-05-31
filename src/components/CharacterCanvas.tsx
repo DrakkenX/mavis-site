@@ -233,6 +233,7 @@ export default function CharacterCanvas({ scrollY = 0 }: { scrollY?: number }) {
         camera={{ position: [0, 0.5, 2.5], fov: 35 }}
         gl={{ antialias: true, alpha: true }}
         style={{ background: 'transparent' }}
+        onCreated={({ camera }) => camera.lookAt(0, -0.3, 0)}
       >
         {/* Stage 1: Atmospheric cream haze — near=5 naturally fades BG clouds */}
         <fog attach="fog" args={['#fdfcfa', 5, 16]} />

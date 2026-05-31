@@ -112,10 +112,12 @@ export default function Character() {
         <div className="flex flex-col md:flex-row md:h-full">
 
           {/* Canvas: min(55vh,80vw) tall on mobile, full-height on desktop.
-              Tailwind arbitrary value (not inline style) so md:h-full wins via CSS order. */}
+              md:max-h-screen caps at 100vh on desktop — overrides any GSAP inline height
+              (GSAP ScrollTrigger pin writes height inline; max-height constrains it without
+              breaking the pin behavior or the scroll animation). */}
           <div
             ref={canvasWrapRef}
-            className="relative w-full h-[min(55vh,80vw)] md:w-1/2 md:h-full flex items-center justify-center"
+            className="relative w-full h-[min(55vh,80vw)] md:w-1/2 md:h-full md:max-h-screen flex items-center justify-center"
           >
             {/* Cream mist */}
             <div className="absolute inset-0 pointer-events-none" style={{

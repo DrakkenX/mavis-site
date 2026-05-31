@@ -130,6 +130,7 @@ export default function MavisCanvas() {
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 1.5]}
         style={{ background: 'transparent' }}
+        onCreated={({ camera }) => camera.lookAt(0, -0.4, 0)}
       >
         {/* ─── Stage 1: Cinematic heavenly light rig (hero scale) ─── */}
         <directionalLight position={[2, 8, 5]} intensity={2.2} color="#fff8ec" />
