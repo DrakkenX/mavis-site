@@ -106,7 +106,7 @@ export default function ClientPage() {
           pointerEvents: 'none',
           zIndex: 0,
         }}
-        gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
+        gl={{ antialias: true, alpha: true }}
         dpr={[1, 1.5]}
       >
         {/* ── Hero MAVIS ── */}
