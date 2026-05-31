@@ -2,14 +2,8 @@
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
-import dynamic from 'next/dynamic';
 
-const MavisCanvas = dynamic(() => import('@/components/MavisCanvas'), {
-  ssr: false,
-  loading: () => <div className="w-full h-full" />,
-});
-
-export default function Hero() {
+export default function Hero({ canvasRef }: { canvasRef: React.RefObject<HTMLDivElement | null> }) {
   const heroRef = useRef<HTMLElement>(null);
   const prefersReduced = useReducedMotion();
 
@@ -66,7 +60,8 @@ export default function Hero() {
           'z-10',
         ].join(' ')}
       >
-        <MavisCanvas />
+        {/* Tracking div — View scissors the shared canvas to this element's bounds */}
+        <div ref={canvasRef} style={{ width: '100%', height: '100%' }} />
       </motion.div>
 
       {/* Text Stack

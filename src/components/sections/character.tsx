@@ -1,21 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import type { Mood } from '@/components/TraitCanvas';
-
-const CharacterCanvas = dynamic(() => import('@/components/CharacterCanvas'), {
-  ssr: false,
-  loading: () => <div className="w-full h-full" />,
-});
-
-const TraitCanvas = dynamic(() => import('@/components/TraitCanvas'), {
-  ssr: false,
-  // Preserve 96×96 space during JS load — no layout shift
-  loading: () => <div style={{ width: 96, height: 96, flexShrink: 0 }} />,
-});
+import type { Mood } from '@/components/scenes/TraitScene';
 
 const traits: Array<{ label: string; name: string; mood: Mood; body: string }> = [
   {
@@ -38,13 +26,28 @@ const traits: Array<{ label: string; name: string; mood: Mood; body: string }> =
   },
 ];
 
-export default function Character() {
+interface CharacterProps {
+  charRef: React.RefObject<HTMLDivElement | null>;
+  traitRefs: [
+    React.RefObject<HTMLDivElement | null>,
+    React.RefObject<HTMLDivElement | null>,
+    React.RefObject<HTMLDivElement | null>,
+  ];
+  onScrollYChange: (y: number) => void;
+  hoveredTrait: number | null;
+  onHoveredTrait: (idx: number | null) => void;
+}
+
+export default function Character({
+  charRef,
+  traitRefs,
+  onScrollYChange,
+  hoveredTrait,
+  onHoveredTrait,
+}: CharacterProps) {
   const sectionRef = useRef<HTMLElement>(null);
-  const canvasWrapRef = useRef<HTMLDivElement>(null);
   const act2Ref = useRef<HTMLDivElement>(null);
   const cardsRef = useRef<HTMLDivElement>(null);
-  const [scrollY, setScrollY] = useState(0);
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -52,21 +55,22 @@ export default function Character() {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const isMobile = window.innerWidth < 768;
 
-    // Track scroll for MAVIS rotation
-    const onScroll = () => setScrollY(window.scrollY);
+    // Report scroll to ClientPage — drives CharacterScene model rotation
+    const onScroll = () => onScrollYChange(window.scrollY);
     window.addEventListener('scroll', onScroll, { passive: true });
 
     if (prefersReduced) return () => window.removeEventListener('scroll', onScroll);
 
     const ctx = gsap.context(() => {
-      // Pin canvas during Act 1 — desktop only.
-      // On mobile the sticky split stacks vertically; no pin needed.
-      if (!isMobile) {
+      // Pin the character canvas tracking div during Act 1 — desktop only.
+      // View reads getBoundingClientRect() every frame, so the pinned element's
+      // viewport-relative position is always correct regardless of GSAP transform.
+      if (!isMobile && charRef.current) {
         ScrollTrigger.create({
           trigger: sectionRef.current,
           start: 'top top',
           end: () => `+=${window.innerHeight}`,
-          pin: canvasWrapRef.current,
+          pin: charRef.current,
           pinSpacing: false,
         });
       }
@@ -96,7 +100,7 @@ export default function Character() {
       ctx.revert();
       window.removeEventListener('scroll', onScroll);
     };
-  }, []);
+  }, [charRef, onScrollYChange]);
 
   return (
     <section
@@ -116,16 +120,14 @@ export default function Character() {
               (GSAP ScrollTrigger pin writes height inline; max-height constrains it without
               breaking the pin behavior or the scroll animation). */}
           <div
-            ref={canvasWrapRef}
             className="relative w-full h-[min(55vh,80vw)] md:w-1/2 md:h-full md:max-h-screen flex items-center justify-center"
           >
             {/* Cream mist */}
             <div className="absolute inset-0 pointer-events-none" style={{
               background: 'radial-gradient(ellipse 70% 70% at 50% 50%, var(--mavis-cream-200) 0%, transparent 70%)',
             }} />
-            <div className="w-full h-full">
-              <CharacterCanvas scrollY={scrollY} />
-            </div>
+            {/* Tracking div — View scissors the shared canvas to this element's bounds */}
+            <div ref={charRef} className="w-full h-full" />
           </div>
 
           {/* Text: full-width on mobile, right-half on desktop */}
@@ -184,20 +186,18 @@ export default function Character() {
                 style={{
                   padding: '32px 24px',
                   border: '1px solid var(--mavis-cream-300)',
-                  // GSAP owns opacity + y-transform on entrance.
-                  // React owns box-shadow + hover-lift (runs after entrance completes).
-                  boxShadow: hoveredIdx === i
+                  boxShadow: hoveredTrait === i
                     ? '0 12px 32px -8px rgba(26,22,18,0.08)'
                     : '0 2px 12px 0 rgba(26,22,18,0.04)',
-                  transform: hoveredIdx === i ? 'translateY(-4px)' : 'translateY(0px)',
+                  transform: hoveredTrait === i ? 'translateY(-4px)' : 'translateY(0px)',
                   transition: 'transform 400ms cubic-bezier(0.16,1,0.3,1), box-shadow 400ms cubic-bezier(0.16,1,0.3,1)',
                 }}
-                onMouseEnter={() => setHoveredIdx(i)}
-                onMouseLeave={() => setHoveredIdx(null)}
+                onMouseEnter={() => onHoveredTrait(i)}
+                onMouseLeave={() => onHoveredTrait(null)}
               >
-                {/* Mood canvas — 96×96, centered */}
+                {/* Tracking div — 96×96 matching old TraitCanvas size, View scissor-renders here */}
                 <div className="flex justify-center">
-                  <TraitCanvas mood={trait.mood} hovered={hoveredIdx === i} />
+                  <div ref={traitRefs[i]} style={{ width: 96, height: 96, flexShrink: 0 }} />
                 </div>
 
                 {/* Geist Mono label */}

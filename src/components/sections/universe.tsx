@@ -1,25 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-const MavisCanvas = dynamic(() => import('@/components/MavisCanvas'), {
-  ssr: false,
-  loading: () => <div className="w-full h-full" />,
-});
-
-const PedestalCanvas = dynamic(() => import('@/components/PedestalCanvas'), {
-  ssr: false,
-  loading: () => <div className="w-full h-full" />,
-});
-
 // ─── Moment 3: Interactive pedestal reveal ────────────────────────────────────
 
-function InteractivePedestal() {
-  const [revealed, setRevealed] = useState(false);
+interface InteractivePedestalProps {
+  pedestalRef: React.RefObject<HTMLDivElement | null>;
+  revealed: boolean;
+  onRevealChange: (v: boolean) => void;
+}
+
+function InteractivePedestal({ pedestalRef, revealed, onRevealChange }: InteractivePedestalProps) {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const momentRef = useRef<HTMLDivElement>(null);
@@ -28,22 +22,21 @@ function InteractivePedestal() {
     setIsMobile(window.innerWidth < 768);
 
     // Reset revealed when this moment leaves the viewport (mobile scroll-away).
-    // On desktop, onMouseLeave handles deactivation — observer is belt-and-suspenders.
     const el = momentRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
-      ([entry]) => { if (!entry.isIntersecting) setRevealed(false); },
+      ([entry]) => { if (!entry.isIntersecting) onRevealChange(false); },
       { threshold: 0.1 }
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [onRevealChange]);
 
   const activate = () => {
-    setRevealed(true);
+    onRevealChange(true);
     if (!hasInteracted) setHasInteracted(true);
   };
-  const deactivate = () => setRevealed(false);
+  const deactivate = () => onRevealChange(false);
 
   return (
     <div
@@ -76,9 +69,9 @@ function InteractivePedestal() {
         }}
       />
 
-      {/* Canvas — mystery-pulse removed while revealed (steady reveal, not pulsing) */}
+      {/* Tracking div — View scissors the shared canvas here; mystery-pulse on container */}
       <div className={`w-[300px] h-[340px] relative z-10${revealed ? '' : ' mystery-pulse'}`}>
-        <PedestalCanvas revealed={revealed} />
+        <div ref={pedestalRef} style={{ width: '100%', height: '100%' }} />
       </div>
 
       {/* Label + hint */}
@@ -125,7 +118,14 @@ function InteractivePedestal() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function Universe() {
+interface UniverseProps {
+  mavisRef: React.RefObject<HTMLDivElement | null>;
+  pedestalRef: React.RefObject<HTMLDivElement | null>;
+  revealed: boolean;
+  onRevealChange: (v: boolean) => void;
+}
+
+export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChange }: UniverseProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
   const particle1Ref = useRef<HTMLDivElement>(null);
@@ -250,9 +250,8 @@ export default function Universe() {
             ))}
           </div>
 
-          <div className="w-[360px] h-[360px] relative z-10">
-            <MavisCanvas />
-          </div>
+          {/* Tracking div — View scissors the shared canvas here */}
+          <div ref={mavisRef} className="w-[360px] h-[360px] relative z-10" />
           <div className="mt-10 text-center z-10">
             <div className="font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500 mb-2">
               001 · MAVIS
@@ -267,7 +266,11 @@ export default function Universe() {
         </div>
 
         {/* MOMENT 3 — Interactive pedestal reveal */}
-        <InteractivePedestal />
+        <InteractivePedestal
+          pedestalRef={pedestalRef}
+          revealed={revealed}
+          onRevealChange={onRevealChange}
+        />
 
         {/* MOMENT 4 — Folio promise: pure cream-50, grounded close */}
         <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-mavis-cream-50 px-8 text-center">
