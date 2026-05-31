@@ -111,39 +111,39 @@ export default function ClientPage() {
       >
         {/* ── Hero MAVIS ── */}
         <View track={heroRef as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={35} position={[0, 0, 4]} lookAt={[0, -0.4, 0]} />
+          <ViewCamera fov={38} position={[0, 0, 4]} lookAt={[0, -0.4, 0]} />
           <MavisScene />
         </View>
 
         {/* ── Character (big MAVIS with full cloudscape) ── */}
         <View track={charRef as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={35} position={[0, 0.5, 2.5]} lookAt={[0, -0.3, 0]} />
+          <ViewCamera fov={40} position={[0, 0.5, 4.5]} lookAt={[0, -0.5, 0]} />
           <CharacterScene scrollY={scrollY} />
         </View>
 
         {/* ── Three trait mood canvases ── */}
         <View track={trait0Ref as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={30} position={[0, 0.3, 2.8]} lookAt={[0, 0, 0]} />
+          <ViewCamera fov={45} position={[0, 0.3, 3.5]} lookAt={[0, -0.4, 0]} />
           <TraitScene mood="quiet" hovered={hoveredTrait === 0} />
         </View>
         <View track={trait1Ref as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={30} position={[0, 0.3, 2.8]} lookAt={[0, 0, 0]} />
+          <ViewCamera fov={45} position={[0, 0.3, 3.5]} lookAt={[0, -0.4, 0]} />
           <TraitScene mood="curious" hovered={hoveredTrait === 1} />
         </View>
         <View track={trait2Ref as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={30} position={[0, 0.3, 2.8]} lookAt={[0, 0, 0]} />
+          <ViewCamera fov={45} position={[0, 0.3, 3.5]} lookAt={[0, -0.4, 0]} />
           <TraitScene mood="patient" hovered={hoveredTrait === 2} />
         </View>
 
         {/* ── Universe Moment 2 MAVIS ── */}
         <View track={uniRef as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={35} position={[0, 0, 4]} lookAt={[0, -0.4, 0]} />
+          <ViewCamera fov={38} position={[0, 0, 4]} lookAt={[0, -0.4, 0]} />
           <MavisScene />
         </View>
 
         {/* ── Pedestal + silhouette ── */}
         <View track={pedRef as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={32} position={[0, 0.5, 3.5]} lookAt={[0, 0, 0]} />
+          <ViewCamera fov={36} position={[0, 0.5, 3.5]} lookAt={[0, -0.05, 0]} />
           <PedestalScene revealed={revealed} />
         </View>
 
