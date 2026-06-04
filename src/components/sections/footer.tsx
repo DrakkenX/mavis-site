@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="relative bg-mavis-cream-50 pt-10 pb-12 px-8">
+    <footer className="relative bg-mavis-cream-50/70 pt-10 pb-12 px-8">
       <div className="max-w-[1280px] mx-auto flex flex-col items-center gap-5 text-center">
 
         {/* Brand mark */}

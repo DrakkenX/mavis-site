@@ -2,8 +2,9 @@
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform, useReducedMotion } from 'framer-motion';
+import HeroCanvas from '@/components/scenes/HeroCanvas';
 
-export default function Hero({ canvasRef }: { canvasRef: React.RefObject<HTMLDivElement | null> }) {
+export default function Hero() {
   const heroRef = useRef<HTMLElement>(null);
   const prefersReduced = useReducedMotion();
 
@@ -38,30 +39,17 @@ export default function Hero({ canvasRef }: { canvasRef: React.RefObject<HTMLDiv
         </div>
       </motion.nav>
 
-      {/* 3D Canvas
-          Mobile:  relative, in flex flow, responsive square, clears nav
-          Desktop: absolute, top-centered, 60vh × 60vh capped at 600px
-      */}
+      {/* 3D Canvas — full-bleed, behind text/nav.
+          Dedicated WebGL context with its own EffectComposer for cinematic
+          post-processing (bloom / DoF / vignette / grain). Opaque cream backdrop
+          so the composer has real pixels (a transparent canvas washes under post). */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{
-          delay: 0.6,
-          duration: 1.2,
-          ease: [0.16, 1, 0.3, 1],
-        }}
-        className={[
-          // Mobile: in-flow, centered, clears 64px nav
-          'relative mt-16 mx-auto flex-shrink-0',
-          'w-[min(55vh,72vw)] h-[min(55vh,72vw)]',
-          // Desktop: absolute, original framing
-          'md:absolute md:top-[8%] md:left-1/2 md:-translate-x-1/2',
-          'md:w-[60vh] md:h-[60vh] md:max-w-[600px] md:max-h-[600px]',
-          'z-10',
-        ].join(' ')}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4, duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
+        className="absolute inset-0 z-0"
       >
-        {/* Tracking div — View scissors the shared canvas to this element's bounds */}
-        <div ref={canvasRef} style={{ width: '100%', height: '100%' }} />
+        <HeroCanvas />
       </motion.div>
 
       {/* Text Stack

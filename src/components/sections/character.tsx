@@ -105,7 +105,7 @@ export default function Character({
   return (
     <section
       ref={sectionRef}
-      className="relative bg-gradient-to-b from-mavis-cream-100 via-mavis-cream-50 to-mavis-cream-100"
+      className="relative bg-gradient-to-b from-mavis-cream-100/70 via-mavis-cream-50/70 to-mavis-cream-100/70"
       style={{ minHeight: '200vh' }}
     >
       {/* ACT 1 — Portrait
@@ -176,7 +176,7 @@ export default function Character({
       </div>
 
       {/* ACT 2 — Traits grid */}
-      <div ref={act2Ref} className="relative bg-gradient-to-b from-mavis-cream-100 to-mavis-cream-200">
+      <div ref={act2Ref} className="relative bg-gradient-to-b from-mavis-cream-100/70 to-mavis-cream-200/70">
         <div className="max-w-[1280px] mx-auto px-8 py-32">
           <div ref={cardsRef} className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {traits.map((trait, i) => (

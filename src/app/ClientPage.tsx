@@ -49,7 +49,7 @@ function ViewCamera({ fov, position, lookAt }: { fov: number; position: Vec3; lo
 // scissors-renders onto the fixed canvas at that div's bounding rect.
 export default function ClientPage() {
   // ── Tracking refs (DOM elements Views track via getBoundingClientRect) ──
-  const heroRef    = useRef<HTMLDivElement>(null);
+  // (Hero owns a dedicated <Canvas> for post-processing — not a shared View.)
   const charRef    = useRef<HTMLDivElement>(null);
   const trait0Ref  = useRef<HTMLDivElement>(null);
   const trait1Ref  = useRef<HTMLDivElement>(null);
@@ -71,7 +71,7 @@ export default function ClientPage() {
   return (
     <div>
       <main>
-        <Hero canvasRef={heroRef} />
+        <Hero />
         <Manifesto />
         <Character
           charRef={charRef}
@@ -109,11 +109,7 @@ export default function ClientPage() {
         gl={{ antialias: true, alpha: true }}
         dpr={[1, 1.5]}
       >
-        {/* ── Hero MAVIS ── */}
-        <View track={heroRef as unknown as React.MutableRefObject<HTMLElement>}>
-          <ViewCamera fov={38} position={[0, 0, 4]} lookAt={[0, -0.4, 0]} />
-          <MavisScene />
-        </View>
+        {/* ── Hero MAVIS now lives in its own <Canvas> (HeroCanvas) for post-FX ── */}
 
         {/* ── Character (big MAVIS with full cloudscape) ── */}
         <View track={charRef as unknown as React.MutableRefObject<HTMLElement>}>

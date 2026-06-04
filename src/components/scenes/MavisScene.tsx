@@ -14,44 +14,25 @@ import * as THREE from 'three';
 useGLTF.preload('/models/mavis.glb');
 
 // ─── Stage 2: Light altar (hero scale) ───────────────────────────────────────
+// Just a thin gold ring now. The original large additive glow discs were dropped:
+// big semi-transparent additive geometry doesn't survive the hero's EffectComposer
+// RGBA round-trip on a transparent canvas — it composited into a pale "pillow" wash
+// (and it wasn't opacity-linear, so dimming didn't help). Grounding instead comes
+// from <ContactShadows> + a tasteful Bloom halo, both of which post cleanly. The
+// thin ring is narrow enough to survive without washing.
 function LightAltar() {
-  const glowRef = useRef<THREE.Mesh>(null);
   const ringRef = useRef<THREE.Mesh>(null);
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
-    if (glowRef.current) {
-      (glowRef.current.material as THREE.MeshBasicMaterial).opacity =
-        0.09 + Math.sin(t * 0.58) * 0.028;
-    }
     if (ringRef.current) {
       (ringRef.current.material as THREE.MeshBasicMaterial).opacity =
-        0.18 + Math.sin(t * 0.42 + 1.2) * 0.055;
+        0.16 + Math.sin(t * 0.42 + 1.2) * 0.05;
     }
   });
 
   return (
     <group position={[0, -1.49, 0]}>
-      <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[1.3, 64]} />
-        <meshBasicMaterial
-          color="#fff8ec"
-          transparent
-          opacity={0.09}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.55, 64]} />
-        <meshBasicMaterial
-          color="#fffaf5"
-          transparent
-          opacity={0.14}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
       <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.82, 0.012, 8, 128]} />
         <meshBasicMaterial

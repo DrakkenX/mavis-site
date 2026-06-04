@@ -41,7 +41,7 @@ function InteractivePedestal({ pedestalRef, revealed, onRevealChange }: Interact
   return (
     <div
       ref={momentRef}
-      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100 via-mavis-cream-100 to-mavis-blush-100 px-8 cursor-pointer md:cursor-default"
+      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100/70 via-mavis-cream-100/70 to-mavis-blush-100/70 px-8 cursor-pointer md:cursor-default"
       onMouseEnter={() => { if (!isMobile) activate(); }}
       onMouseLeave={() => { if (!isMobile) deactivate(); }}
       onClick={() => { if (isMobile) { revealed ? deactivate() : activate(); } }}
@@ -175,7 +175,7 @@ export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChan
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-mavis-cream-50"
+      className="relative overflow-hidden bg-mavis-cream-50/70"
       style={{ minHeight: '150vh' }}
     >
       {/* Panorama
@@ -273,7 +273,7 @@ export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChan
         />
 
         {/* MOMENT 4 — Folio promise: pure cream-50, grounded close */}
-        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-mavis-cream-50 px-8 text-center">
+        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-mavis-cream-50/70 px-8 text-center">
           <h2
             className="font-display font-light text-mavis-ink-900 leading-[1.05] tracking-[-0.02em] mb-10"
             style={{ fontSize: 'clamp(36px, 5vw, 76px)' }}
