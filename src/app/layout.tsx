@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Fraunces, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import AmbientBackdrop from "@/components/ambient/AmbientBackdrop";
+import Presence from "@/components/ambient/Presence";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,8 +38,8 @@ export default function RootLayout({
     >
       <body className={`${inter.className} bg-mavis-cream-50 text-mavis-ink-900 antialiased`}>
         <div className="relative min-h-screen">
-          {/* Living warm aurora (z-0) + cursor-reactive mote layer (z-30) */}
-          <AmbientBackdrop />
+          {/* "Presence" — the single site-wide warm interactive WebGL world (z-0) */}
+          <Presence />
           {/* Film grain overlay (over content, under the mote layer) */}
           <div
             className="pointer-events-none fixed inset-0 z-20 opacity-[0.025] mix-blend-multiply"

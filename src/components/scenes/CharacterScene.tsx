@@ -1,17 +1,10 @@
 'use client';
 
 import { useFrame } from '@react-three/fiber';
-import {
-  ContactShadows,
-  Environment,
-  Lightformer,
-  useGLTF,
-  Cloud,
-  Clouds,
-  Sparkles,
-} from '@react-three/drei';
+import { useGLTF, Cloud, Clouds, Sparkles } from '@react-three/drei';
 import { useRef, Suspense, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
+import MavisStage from './MavisStage';
 
 useGLTF.preload('/models/mavis.glb');
 
@@ -201,12 +194,8 @@ export default function CharacterScene({ scrollY = 0, onReady }: { scrollY?: num
       {/* Stage 1: Atmospheric cream haze — near=5 naturally fades BG clouds */}
       <fog attach="fog" args={['#fdfcfa', 5, 16]} />
 
-      {/* ─── Stage 1: Cinematic 5-point heavenly light rig ─── */}
-      <directionalLight position={[1, 9, 4]} intensity={2.4} color="#fff8ec" />
-      <directionalLight position={[-5, -2, 3]} intensity={0.65} color="#b8d4e3" />
-      <directionalLight position={[3, 3, -5]} intensity={1.4} color="#c8a25a" />
-      <directionalLight position={[-3, 2, -4]} intensity={0.9} color="#d4aa5a" />
-      <ambientLight intensity={0.75} color="#fff8f0" />
+      {/* Unified warm lighting + grounding — scaled up for the larger character */}
+      <MavisStage shadowY={-1.4} shadowScale={5.6} shadowBlur={3.8} shadowOpacity={0.18} envIntensity={1.05} />
 
       {/* Stage 2: Cloudscape — world depth around MAVIS */}
       <CloudLayers />
@@ -222,26 +211,6 @@ export default function CharacterScene({ scrollY = 0, onReady }: { scrollY?: num
 
       {/* Stage 2: Light altar — stays fixed, MAVIS floats above it */}
       <LightAltar />
-
-      {/* Stage 1: Soft warm floor shadow */}
-      <ContactShadows
-        position={[0, -1.4, 0]}
-        opacity={0.10}
-        scale={5}
-        blur={4.5}
-        far={2}
-        color="#c2b5a5"
-      />
-
-      {/* Stage 1: Heavenly Environment — Lightformers for model reflections */}
-      <Environment resolution={256}>
-        <Lightformer form="ring" intensity={4} color="#fff8ec" position={[0, 8, 0]} scale={8} rotation={[Math.PI / 2, 0, 0]} />
-        <Lightformer form="rect" intensity={2} color="#fffaf5" position={[0, 2, 8]} scale={[8, 5, 1] as [number, number, number]} />
-        <Lightformer form="rect" intensity={2.5} color="#c8a25a" position={[8, 4, -4]} scale={[2, 6, 1] as [number, number, number]} rotation={[0, -Math.PI / 3, 0]} />
-        <Lightformer form="rect" intensity={1.8} color="#d4aa66" position={[-8, 4, -4]} scale={[2, 6, 1] as [number, number, number]} rotation={[0, Math.PI / 3, 0]} />
-        <Lightformer form="rect" intensity={1} color="#b8d4e3" position={[0, -5, 3]} scale={[10, 3, 1] as [number, number, number]} />
-        <Lightformer form="ring" intensity={0.8} color="#fffcf8" position={[0, 0, -12]} scale={14} />
-      </Environment>
     </>
   );
 }

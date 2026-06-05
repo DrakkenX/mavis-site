@@ -153,39 +153,3 @@
     border-radius: 2px;
   }
 }
-
-/* ─── Item 8: living warm aurora (site-wide, behind content) ─────────────────── */
-/* Soft warm radial blobs that slowly drift + breathe — "floating in warm light."
-   Fixed at z-0; translucent section veils let it show through the whole page. */
-.mavis-aurora {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-color: var(--mavis-cream-50);
-  background-image:
-    radial-gradient(42% 52% at 20% 24%, rgba(253, 228, 208, 0.60), transparent 70%),
-    radial-gradient(46% 56% at 82% 30%, rgba(252, 232, 230, 0.55), transparent 72%),
-    radial-gradient(52% 52% at 66% 82%, rgba(255, 224, 178, 0.45), transparent 72%),
-    radial-gradient(40% 46% at 28% 86%, rgba(184, 212, 227, 0.26), transparent 72%);
-  background-repeat: no-repeat;
-  background-size: 140% 140%, 132% 132%, 150% 150%, 120% 120%;
-  animation:
-    mavis-aurora-drift 30s ease-in-out infinite alternate,
-    mavis-aurora-breathe 22s ease-in-out infinite;
-}
-
-@keyframes mavis-aurora-drift {
-  0%   { background-position: 0% 0%, 100% 0%, 50% 100%, 0% 100%; }
-  50%  { background-position: 12% 16%, 84% 22%, 62% 78%, 16% 84%; }
-  100% { background-position: 4% 6%, 96% 8%, 44% 96%, 6% 96%; }
-}
-
-@keyframes mavis-aurora-breathe {
-  0%, 100% { filter: brightness(1) saturate(1); }
-  50%      { filter: brightness(1.05) saturate(1.09); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mavis-aurora { animation: none; }
-}

@@ -2,8 +2,9 @@
 
 import { useRef, useMemo, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { ContactShadows, Float, useGLTF } from '@react-three/drei';
+import { Float, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import MavisStage from './MavisStage';
 
 export type Mood = 'quiet' | 'curious' | 'patient';
 
@@ -120,14 +121,20 @@ function MavisMoodModel({ mood, hovered }: MavisMoodModelProps) {
 export default function TraitScene({ mood, hovered = false }: { mood: Mood; hovered?: boolean }) {
   return (
     <Suspense fallback={null}>
-      <MavisMoodModel mood={mood} hovered={hovered} />
-      <ContactShadows
-        position={[0, -1.2, 0]}
-        opacity={0.3}
-        scale={3}
-        blur={2}
-        far={1.5}
+      {/* Per-mood key/fill/rim lights live in MavisMoodModel; the stage adds the
+          shared warm IBL (so materials match the rest of the site) + grounding.
+          lights={false} keeps the mood tints in charge; envIntensity is dialed
+          back so IBL shapes form without flattening each mood. */}
+      <MavisStage
+        lights={false}
+        envIntensity={0.7}
+        shadowY={-1.2}
+        shadowScale={3}
+        shadowBlur={2.4}
+        shadowOpacity={0.28}
+        shadowFar={1.5}
       />
+      <MavisMoodModel mood={mood} hovered={hovered} />
     </Suspense>
   );
 }

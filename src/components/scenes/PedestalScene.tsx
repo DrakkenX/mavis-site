@@ -2,8 +2,9 @@
 
 import { useRef, useMemo, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { ContactShadows, Environment, useGLTF } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import MavisStage from './MavisStage';
 
 // ─── Pedestal geometry ────────────────────────────────────────────────────────
 function Pedestal() {
@@ -90,20 +91,22 @@ function Silhouette({ revealed }: { revealed: boolean }) {
 export default function PedestalScene({ revealed = false }: { revealed?: boolean }) {
   return (
     <>
-      <directionalLight position={[0, 6, 2]} intensity={1.4} color="#fff8f0" />
-      <directionalLight position={[-3, 2, 2]} intensity={0.3} color="#fce8e6" />
-      <directionalLight position={[0, 5, 0]} intensity={0.6} color="#e6f0ff" />
-      <ambientLight intensity={0.5} color="#ffffff" />
+      {/* Unified warm lighting + grounding. (Was Environment preset="apartment" —
+          a cool indoor HDRI that broke the site's warm identity.) The pedestal sits
+          lower, so the shadow drops to the base plinth. */}
+      <MavisStage
+        shadowY={-1.08}
+        shadowScale={4}
+        shadowBlur={2.6}
+        shadowOpacity={0.26}
+        shadowFar={1.6}
+      />
 
       <Pedestal />
 
       <Suspense fallback={null}>
         <Silhouette revealed={revealed} />
       </Suspense>
-
-      <ContactShadows position={[0, -1.08, 0]} opacity={0.2} scale={4} blur={2} far={1.5} />
-
-      <Environment preset="apartment" />
     </>
   );
 }
