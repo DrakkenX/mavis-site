@@ -48,6 +48,12 @@ export default function Hero() {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 1.4, ease: [0.16, 1, 0.3, 1] }}
         className="absolute inset-0 z-0"
+        style={{
+          // Dissolve the opaque hero canvas into the Presence field at the bottom
+          // edge so there is no hard line where the hero meets the world below.
+          maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+        }}
       >
         <HeroCanvas />
       </motion.div>

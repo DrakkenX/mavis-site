@@ -41,7 +41,7 @@ function InteractivePedestal({ pedestalRef, revealed, onRevealChange }: Interact
   return (
     <div
       ref={momentRef}
-      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-gradient-to-b from-mavis-blush-100/70 via-mavis-cream-100/70 to-mavis-blush-100/70 px-8 cursor-pointer md:cursor-default"
+      className="relative flex-none w-screen h-screen flex flex-col items-center justify-center px-8 cursor-pointer md:cursor-default"
       onMouseEnter={() => { if (!isMobile) activate(); }}
       onMouseLeave={() => { if (!isMobile) deactivate(); }}
       onClick={() => { if (isMobile) { revealed ? deactivate() : activate(); } }}
@@ -175,7 +175,7 @@ export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChan
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-mavis-cream-50/70"
+      className="relative overflow-hidden"
       style={{ minHeight: '150vh' }}
     >
       {/* Panorama
@@ -188,13 +188,8 @@ export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChan
         style={{ width: 'max-content' }}
       >
 
-        {/* MOMENT 1 — Title plate: pure cream-50, content 15% above center, gold line */}
-        {/* Moment 1 bridges from Character Act 2 (cream-200) → cream-50 via gradient.
-            Removes the hard temperature cut between sections. */}
-        <div
-          className="relative flex-none w-screen h-screen px-8"
-          style={{ background: 'linear-gradient(to bottom, var(--mavis-cream-200) 0%, var(--mavis-cream-50) 40%)' }}
-        >
+        {/* MOMENT 1 — Title plate: transparent, Presence shows through (no seam) */}
+        <div className="relative flex-none w-screen h-screen px-8">
           {/* Content pinned at 35vh (15% above 50vh center) */}
           <div
             className="absolute left-1/2 text-center"
@@ -226,12 +221,7 @@ export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChan
         </div>
 
         {/* MOMENT 2 — MAVIS in mist: warmer radial gradient, halved particle speed */}
-        <div
-          className="relative flex-none w-screen h-screen flex flex-col items-center justify-center px-8"
-          style={{
-            background: 'radial-gradient(ellipse 70% 70% at 50% 50%, var(--mavis-cream-100) 0%, var(--mavis-peach-100) 40%, var(--mavis-cream-50) 100%)',
-          }}
-        >
+        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center px-8">
           {/* Particles — tinted peach-100, drift speed halved (2× duration) */}
           <div ref={particle1Ref} className="absolute inset-0 pointer-events-none overflow-hidden">
             {Array.from({ length: 12 }).map((_, i) => (
@@ -273,7 +263,7 @@ export default function Universe({ mavisRef, pedestalRef, revealed, onRevealChan
         />
 
         {/* MOMENT 4 — Folio promise: pure cream-50, grounded close */}
-        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center bg-mavis-cream-50/70 px-8 text-center">
+        <div className="relative flex-none w-screen h-screen flex flex-col items-center justify-center px-8 text-center">
           <h2
             className="font-display font-light text-mavis-ink-900 leading-[1.05] tracking-[-0.02em] mb-10"
             style={{ fontSize: 'clamp(36px, 5vw, 76px)' }}

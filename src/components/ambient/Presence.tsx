@@ -63,9 +63,10 @@ const FIELD_FRAG = /* glsl */ `
   uniform float uAspect;   // w/h
   uniform vec2  uRes;
 
-  // warm palette — CREAM base matches the hero canvas (#fdfcfa) for a seamless scroll
-  const vec3 CREAM = vec3(0.992, 0.984, 0.973);
-  const vec3 PEACH = vec3(0.976, 0.851, 0.737);
+  // warm palette — CREAM base matches the hero canvas (#fdfcfa) EXACTLY so the
+  // opaque hero dissolves seamlessly into the field as you scroll out.
+  const vec3 CREAM = vec3(0.992, 0.988, 0.980);
+  const vec3 PEACH = vec3(0.973, 0.847, 0.733);
   const vec3 AMBER = vec3(0.953, 0.769, 0.541);
   const vec3 GOLD  = vec3(1.000, 0.831, 0.553);
 
@@ -112,33 +113,41 @@ const FIELD_FRAG = /* glsl */ `
     vec2 p  = uv * vec2(uAspect, 1.0);
     float t = uTime * 0.035; // slow, ~minute-scale evolution
 
-    // frosted-glass domain warp
+    // two-scale frosted-glass flow: big slow cloud forms (depth) + a finer warp
     vec2 q = vec2(fbm(p * 1.3 + vec2(0.0, t)),
                   fbm(p * 1.3 + vec2(5.2, -t)));
-    float n  = fbm(p * 1.7 + q * 0.9 + t * 0.6);
-    float nn = n * 0.5 + 0.5;
+    float big = fbm(p * 0.6 - vec2(t * 0.5, t * 0.2));
+    float n   = fbm(p * 1.7 + q * 0.9 + t * 0.6);
+    float nn  = (n * 0.5 + 0.5) * 0.68 + (big * 0.5 + 0.5) * 0.32;
 
-    // base: airy cream up top, warmer toward the floor; amber pools where noise gathers
-    vec3 col = mix(PEACH, CREAM, smoothstep(-0.15, 1.05, uv.y));
-    col = mix(col, AMBER, smoothstep(0.55, 0.98, nn) * 0.38);
-    col = mix(col, CREAM, smoothstep(0.42, 0.02, nn) * 0.30);
+    // base: PREDOMINANTLY cream (== hero) with warmth as a gentle moving undertone.
+    // Keeps the whole page one soft surface and keeps dark text legible everywhere.
+    vec3 col = CREAM;
+    col = mix(col, PEACH, smoothstep(0.46, 0.93, nn) * 0.34);
+    col = mix(col, AMBER, smoothstep(0.74, 1.00, nn) * 0.15);
+    // faintest warmth gathering toward the floor
+    col = mix(col, PEACH, smoothstep(0.32, -0.25, uv.y) * 0.11);
 
-    // breath — soft warmth swell + an expanding ring from centre every ~9s
+    // breath — soft warmth swell + a gentle expanding ring from centre every ~9s
     float phase = fract(uTime / 9.0);
     float swell = exp(-phase * 4.0);
     float dc    = distance(uv, vec2(0.5));
-    float ring  = smoothstep(0.10, 0.0, abs(dc - phase * 1.1)) * (1.0 - phase);
-    col += GOLD * (swell * 0.010 + ring * 0.045);
+    float ring  = smoothstep(0.14, 0.0, abs(dc - phase * 1.1)) * (1.0 - phase);
+    col += GOLD * (swell * 0.012 + ring * 0.038);
 
-    // cursor warmth — local golden bloom that we lerp toward (see <Field> useFrame)
-    float dp   = distance(p, uPointer * vec2(uAspect, 1.0));
-    float glow = smoothstep(0.34, 0.0, dp) * uActive;
-    col = mix(col, GOLD, glow * 0.32);
-    col += GOLD * glow * glow * 0.22;
+    // cursor warmth — a wide soft halo + a brighter core, both lerped toward the
+    // pointer (see <Field> useFrame). Reads clearly now that the base is cream.
+    vec2 pp   = uPointer * vec2(uAspect, 1.0);
+    float dp  = distance(p, pp);
+    float halo = smoothstep(0.52, 0.0, dp) * uActive;
+    float core = smoothstep(0.17, 0.0, dp) * uActive;
+    col = mix(col, PEACH, halo * 0.22);
+    col = mix(col, GOLD, core * 0.30);
+    col += GOLD * core * core * 0.24;
 
     // soft vignette for depth (volumetric haze feel)
     float vig = smoothstep(1.15, 0.32, dc);
-    col *= mix(0.93, 1.0, vig);
+    col *= mix(0.95, 1.0, vig);
 
     // faint film grain
     float g = hash21(uv * uRes + fract(uTime) * vec2(91.7, 113.3));
@@ -237,7 +246,7 @@ const MOTE_VERT = /* glsl */ `
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float tw = 0.55 + 0.45 * sin(uTime * 1.4 + aSeed * 6.2831);
-    vAlpha = tw * (0.32 + aBright); // base softness + proximity brightening
+    vAlpha = tw * (0.36 + aBright); // base softness + proximity brightening
     vCol = mix(M_PEACH, M_GOLD, aSeed);
     gl_PointSize = aSize * uDpr * (1.0 + aBright * 0.7);
   }
@@ -255,7 +264,7 @@ const MOTE_FRAG = /* glsl */ `
   }
 `;
 
-const MOTE_COUNT = 170;
+const MOTE_COUNT = 200;
 
 function Motes({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced: boolean }) {
   const points = useRef<THREE.Points>(null);
@@ -285,7 +294,8 @@ function Motes({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced
     const seeds = new Float32Array(MOTE_COUNT);
     const bright = new Float32Array(MOTE_COUNT);
     for (let i = 0; i < MOTE_COUNT; i++) {
-      sizes[i] = 5 + Math.random() * 13;
+      // wide size spread = depth (tiny far motes → big soft near ones)
+      sizes[i] = 3.5 + Math.pow(Math.random(), 1.7) * 17;
       seeds[i] = Math.random();
     }
     return { positions, sizes, seeds, bright };

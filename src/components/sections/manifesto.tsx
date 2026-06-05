@@ -56,7 +56,7 @@ export default function Manifesto() {
   return (
     <section
       ref={sectionRef}
-      className="relative min-h-screen overflow-hidden bg-gradient-to-b from-mavis-cream-50/70 via-mavis-cream-100/70 to-mavis-cream-50/70"
+      className="relative min-h-screen overflow-hidden"
     >
       {/* Animated background gradient */}
       <div

@@ -13,7 +13,7 @@ export default function Newsletter() {
   };
 
   return (
-    <section className="relative bg-mavis-cream-50/70 overflow-hidden py-28 md:py-36 px-8">
+    <section className="relative overflow-hidden py-28 md:py-36 px-8">
       {/* Warm bloom — echoes the cream world, grounds the close */}
       <div
         aria-hidden="true"
