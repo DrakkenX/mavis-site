@@ -51,8 +51,8 @@ export default function Hero() {
         style={{
           // Dissolve the opaque hero canvas into the Presence field at the bottom
           // edge so there is no hard line where the hero meets the world below.
-          maskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to bottom, black 82%, transparent 100%)',
+          maskImage: 'linear-gradient(to bottom, black 66%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 66%, transparent 100%)',
         }}
       >
         <HeroCanvas />

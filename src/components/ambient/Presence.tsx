@@ -99,7 +99,7 @@ const FIELD_FRAG = /* glsl */ `
   }
   float fbm(vec2 p){
     float v = 0.0, a = 0.5;
-    for (int i = 0; i < 4; i++) { v += a * snoise(p); p *= 2.0; a *= 0.5; }
+    for (int i = 0; i < 3; i++) { v += a * snoise(p); p *= 2.0; a *= 0.5; }
     return v;
   }
   float hash21(vec2 p){
@@ -113,20 +113,48 @@ const FIELD_FRAG = /* glsl */ `
     vec2 p  = uv * vec2(uAspect, 1.0);
     float t = uTime * 0.035; // slow, ~minute-scale evolution
 
-    // two-scale frosted-glass flow: big slow cloud forms (depth) + a finer warp
-    vec2 q = vec2(fbm(p * 1.3 + vec2(0.0, t)),
-                  fbm(p * 1.3 + vec2(5.2, -t)));
-    float big = fbm(p * 0.6 - vec2(t * 0.5, t * 0.2));
-    float n   = fbm(p * 1.7 + q * 0.9 + t * 0.6);
-    float nn  = (n * 0.5 + 0.5) * 0.68 + (big * 0.5 + 0.5) * 0.32;
+    vec2 pp  = uPointer * vec2(uAspect, 1.0);
+    vec2 toC = pp - p;
+    float dC = length(toC);
 
-    // base: PREDOMINANTLY cream (== hero) with warmth as a gentle moving undertone.
-    // Keeps the whole page one soft surface and keeps dark text legible everywhere.
-    vec3 col = CREAM;
-    col = mix(col, PEACH, smoothstep(0.46, 0.93, nn) * 0.34);
-    col = mix(col, AMBER, smoothstep(0.74, 1.00, nn) * 0.15);
-    // faintest warmth gathering toward the floor
-    col = mix(col, PEACH, smoothstep(0.32, -0.25, uv.y) * 0.11);
+    // cursor BENDS the frosted glass — the domain flows toward the pointer
+    float infl = exp(-dC * dC * 2.0) * uActive;
+    vec2 warp = (toC / (dC + 1e-4)) * infl * 0.16;
+
+    // two-scale flow heightfield (big slow clouds + finer warp), pulled by the cursor
+    vec2 q = vec2(fbm(p * 1.3 + warp + vec2(0.0, t)),
+                  fbm(p * 1.3 + warp + vec2(5.2, -t)));
+    float big = fbm(p * 0.6 - vec2(t * 0.5, t * 0.2));
+    float h   = fbm(p * 1.7 + q * 0.9 + t * 0.6);
+    float nn  = (h * 0.5 + 0.5) * 0.82 + (big * 0.5 + 0.5) * 0.18;
+
+    // surface NORMAL from the heightfield (2 cheap extra taps, q reused) → real 3D relief
+    float e  = 0.05;
+    float hX = fbm((p + vec2(e, 0.0)) * 1.7 + q * 0.9 + t * 0.6);
+    float hY = fbm((p + vec2(0.0, e)) * 1.7 + q * 0.9 + t * 0.6);
+    vec3 N = normalize(vec3((h - hX) * 14.0, (h - hY) * 14.0, 1.0));
+
+    // base: predominantly cream (== hero) with warm pools — keeps text legible
+    // ANCHORED light warm haze (no global tone swings): warmth sits at a constant
+    // cream→peach mid, the fine noise only nudges it ± locally → soft dimensional
+    // warmth that stays consistent + legible, with rare amber in the deep pools.
+    float warmth = clamp(0.30 + (nn - 0.5) * 0.42, 0.08, 0.60);
+    vec3 col = mix(CREAM, PEACH, warmth);
+    col = mix(col, AMBER, smoothstep(0.74, 1.00, nn) * 0.14);
+    col = mix(col, PEACH, smoothstep(0.42, -0.20, uv.y) * 0.10);
+
+    // soft global emboss → the whole surface reads as a 3D frosted-glass relief
+    col *= mix(0.95, 1.035, N.z);
+
+    // cursor = a moving warm LIGHT raking across the 3D relief (the interactive 3D)
+    vec3 Lc    = normalize(vec3(toC, 0.55));
+    float atten = exp(-dC * dC * 1.3) * uActive;
+    float diff  = max(dot(N, Lc), 0.0);
+    col += GOLD * diff * atten * 0.9;
+    // wet-glass specular glint that slides across the relief by the cursor
+    vec3 Hh    = normalize(Lc + vec3(0.0, 0.0, 1.0));
+    float spec = pow(max(dot(N, Hh), 0.0), 18.0) * atten;
+    col += vec3(1.0, 0.96, 0.88) * spec * 1.1;
 
     // breath — soft warmth swell + a gentle expanding ring from centre every ~9s
     float phase = fract(uTime / 9.0);
@@ -135,15 +163,12 @@ const FIELD_FRAG = /* glsl */ `
     float ring  = smoothstep(0.14, 0.0, abs(dc - phase * 1.1)) * (1.0 - phase);
     col += GOLD * (swell * 0.012 + ring * 0.038);
 
-    // cursor warmth — a wide soft halo + a brighter core, both lerped toward the
-    // pointer (see <Field> useFrame). Reads clearly now that the base is cream.
-    vec2 pp   = uPointer * vec2(uAspect, 1.0);
-    float dp  = distance(p, pp);
-    float halo = smoothstep(0.52, 0.0, dp) * uActive;
-    float core = smoothstep(0.17, 0.0, dp) * uActive;
-    col = mix(col, PEACH, halo * 0.22);
-    col = mix(col, GOLD, core * 0.30);
-    col += GOLD * core * core * 0.24;
+    // cursor warmth bloom — a wide soft halo + a brighter core
+    float halo = smoothstep(0.55, 0.0, dC) * uActive;
+    float core = smoothstep(0.22, 0.0, dC) * uActive;
+    col = mix(col, PEACH, halo * 0.26);
+    col = mix(col, GOLD, core * 0.42);
+    col += GOLD * core * core * 0.50;
 
     // soft vignette for depth (volumetric haze feel)
     float vig = smoothstep(1.15, 0.32, dc);
@@ -362,9 +387,12 @@ function Motes({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced
         const dist = Math.hypot(dx, dy) || 1;
         if (dist < RADIUS) {
           const f = (1 - dist / RADIUS) * p.active; // 0..1
-          state.svx[i] += (dx / dist) * STEER * f;
-          state.svy[i] += (dy / dist) * STEER * f;
-          targetBright = f * 0.7;
+          const ux = dx / dist;
+          const uy = dy / dist;
+          // inward pull + tangential swirl → motes spiral in around the cursor
+          state.svx[i] += (ux * STEER - uy * STEER * 0.6) * f;
+          state.svy[i] += (uy * STEER + ux * STEER * 0.6) * f;
+          targetBright = f * 0.85;
         }
       }
 
@@ -381,8 +409,10 @@ function Motes({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced
       // ease brightness toward target (brighten on approach, fade on disperse)
       state.bright[i] += (targetBright - state.bright[i]) * 0.08;
 
-      posArr[i * 3] = state.px[i];
-      posArr[i * 3 + 1] = state.py[i];
+      // depth parallax: nearer motes (bigger seed) drift more with the cursor → 3D
+      const depth = seeds[i];
+      posArr[i * 3] = state.px[i] + p.wx * depth * 0.03;
+      posArr[i * 3 + 1] = state.py[i] + p.wy * depth * 0.03;
       posArr[i * 3 + 2] = 0;
       brArr[i] = state.bright[i];
     }
@@ -464,7 +494,7 @@ export default function Presence() {
       <Canvas
         orthographic
         camera={{ position: [0, 0, 10], zoom: 1, near: 0.1, far: 100 }}
-        dpr={[1, 1.75]}
+        dpr={[1, 1.5]}
         gl={{ antialias: false, alpha: true, powerPreference: 'low-power' }}
         frameloop={reduced ? 'demand' : 'always'}
         style={{ width: '100%', height: '100%' }}

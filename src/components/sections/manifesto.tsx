@@ -58,15 +58,6 @@ export default function Manifesto() {
       ref={sectionRef}
       className="relative min-h-screen overflow-hidden"
     >
-      {/* Animated background gradient */}
-      <div
-        className="absolute inset-0 opacity-40 pointer-events-none"
-        style={{
-          backgroundImage: 'radial-gradient(ellipse 80% 60% at 50% 40%, var(--mavis-cream-200) 0%, transparent 70%)',
-          animation: 'gradientDrift 60s ease-in-out infinite alternate',
-        }}
-      />
-
       {/* Chapter label */}
       <div className="absolute top-12 left-8 font-mono text-[10px] tracking-[0.32em] uppercase text-mavis-ink-500 pointer-events-none">
         Chapter I · Manifesto
