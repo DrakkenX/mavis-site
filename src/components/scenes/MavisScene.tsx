@@ -61,7 +61,7 @@ function HeroMotes() {
 // Clones GLB scene — required when this component renders in multiple simultaneous
 // Views sharing one WebGL context (Hero + Universe Moment 2). Clone shares GPU
 // geometry/material buffers but has an independent Object3D hierarchy.
-function MavisModel({ onReady }: { onReady?: () => void }) {
+function MavisModel({ onReady, headOn = false }: { onReady?: () => void; headOn?: boolean }) {
   const meshRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF('/models/mavis.glb');
   const clonedScene = useMemo(() => scene.clone(true), [scene]);
@@ -71,8 +71,18 @@ function MavisModel({ onReady }: { onReady?: () => void }) {
 
   useFrame((state) => {
     if (!meshRef.current) return;
-    meshRef.current.position.y = -0.5 + Math.sin(state.clock.elapsedTime * 1.5) * 0.08;
-    meshRef.current.rotation.y += 0.002;
+    const t = state.clock.elapsedTime;
+    meshRef.current.position.y = -0.5 + Math.sin(t * 1.5) * 0.08;
+    // Hero stays front-on with a tender left/right sway (never shows its back now
+    // that it's viewport-scale); other instances keep the slow continuous turn.
+    if (headOn) {
+      // GLB faces +X at yaw 0; -π/2 turns the face to the camera. The tender sway
+      // then lets MAVIS glance gently left and right — dimensional, and it never
+      // shows its back now that it's viewport-scale.
+      meshRef.current.rotation.y = -Math.PI / 2 + Math.sin(t * 0.32) * 0.34;
+    } else {
+      meshRef.current.rotation.y += 0.002;
+    }
   });
 
   return (
@@ -85,7 +95,7 @@ function MavisModel({ onReady }: { onReady?: () => void }) {
 // ─── MavisScene ───────────────────────────────────────────────────────────────
 // Pure R3F scene graph — no <Canvas>. Mount inside a <View> in ClientPage.
 // Camera is configured externally (ViewCamera in ClientPage).
-export default function MavisScene({ onReady }: { onReady?: () => void }) {
+export default function MavisScene({ onReady, headOn = false }: { onReady?: () => void; headOn?: boolean }) {
   return (
     <>
       {/* Unified warm lighting + grounding (igloo-style IBL + gold rim + soft shadow) */}
@@ -95,7 +105,7 @@ export default function MavisScene({ onReady }: { onReady?: () => void }) {
       <HeroMotes />
 
       <Suspense fallback={null}>
-        <MavisModel onReady={onReady} />
+        <MavisModel onReady={onReady} headOn={headOn} />
       </Suspense>
 
       {/* Stage 2: Light altar — sacred ground MAVIS rests above */}

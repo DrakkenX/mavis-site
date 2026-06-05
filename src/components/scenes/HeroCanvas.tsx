@@ -21,12 +21,12 @@ export default function HeroCanvas() {
       style={{ width: '100%', height: '100%', pointerEvents: 'none' }}
       gl={{ antialias: true }}
       dpr={[1, 2]}
-      camera={{ fov: 34, position: [0, 0.05, 5.4] }}
-      onCreated={({ camera }) => camera.lookAt(0, -0.7, 0)}
+      camera={{ fov: 34, position: [0, 0.08, 4.35] }}
+      onCreated={({ camera }) => camera.lookAt(0, -0.74, 0)}
     >
       {/* Opaque cream backdrop — matches the page so the section reads seamless */}
       <color attach="background" args={['#fdfcfa']} />
-      <MavisScene />
+      <MavisScene headOn />
       <PostFX />
     </Canvas>
   );
