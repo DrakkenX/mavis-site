@@ -170,6 +170,16 @@ const FIELD_FRAG = /* glsl */ `
     col = mix(col, GOLD, core * 0.20);
     col += GOLD * core * core * 0.22;
 
+    // futuristic cursor reticle — a thin ring + 4 slowly-rotating ticks (HUD targeting)
+    float ringR = 0.06;
+    float ringW = smoothstep(0.0045, 0.0, abs(dC - ringR)) * uActive;
+    float ang = atan(toC.y, toC.x) + uTime * 0.7;
+    float ticks = smoothstep(0.90, 1.0, cos(ang * 4.0));
+    float tickBand = smoothstep(0.018, 0.0, abs(dC - ringR)) * ticks * uActive;
+    // a tiny inner dot + the ring, drawn slightly darker so it reads on the cream
+    float dot = smoothstep(0.006, 0.0, dC) * uActive;
+    col = mix(col, GOLD * 0.5, ringW * 0.5 + tickBand * 0.75 + dot * 0.6);
+
     // soft vignette for depth (volumetric haze feel)
     float vig = smoothstep(1.15, 0.32, dc);
     col *= mix(0.95, 1.0, vig);
@@ -306,13 +316,39 @@ const LINE_FRAG = /* glsl */ `
   void main(){ gl_FragColor = vec4(L_COL, vA); }
 `;
 
+// Pulses: bright beads of "energy" that travel along the threads (futuristic
+// data-flow). Saturated gold so they read on the cream, normal blend.
+const PULSE_VERT = /* glsl */ `
+  attribute float aAlpha;
+  uniform float uDpr;
+  varying float vA;
+  void main(){
+    vA = aAlpha;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = 3.6 * uDpr;
+  }
+`;
+const PULSE_FRAG = /* glsl */ `
+  precision mediump float;
+  varying float vA;
+  const vec3 P_COL = vec3(0.92, 0.62, 0.20);
+  void main(){
+    float d = length(gl_PointCoord - 0.5);
+    float a = smoothstep(0.5, 0.0, d);
+    gl_FragColor = vec4(P_COL, a * vA);
+  }
+`;
+
 const NODE_COUNT = 90;
 const MAX_SEG = 800; // hard cap on rendered link segments / frame
+const MAX_PULSE = 150; // hard cap on traveling energy beads / frame
 
 function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced: boolean }) {
   const points = useRef<THREE.Points>(null);
   const linesRef = useRef<THREE.LineSegments>(null);
+  const pulsesRef = useRef<THREE.Points>(null);
   const nodeMat = useRef<THREE.ShaderMaterial>(null);
+  const pulseMat = useRef<THREE.ShaderMaterial>(null);
   const { size, gl, invalidate } = useThree();
 
   // Per-node CPU state — a true 3D point cloud (x,y,z), rotated + projected each
@@ -359,6 +395,15 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
     () => ({
       positions: new Float32Array(MAX_SEG * 2 * 3),
       alpha: new Float32Array(MAX_SEG * 2),
+    }),
+    []
+  );
+
+  // Pulse (energy bead) GPU buffers.
+  const pulse = useMemo(
+    () => ({
+      positions: new Float32Array(MAX_PULSE * 3),
+      alpha: new Float32Array(MAX_PULSE),
     }),
     []
   );
@@ -425,6 +470,9 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
     const nodePos = pts.geometry.attributes.position.array as Float32Array;
     const nodeBr = pts.geometry.attributes.aBright.array as Float32Array;
     const nodeSz = pts.geometry.attributes.aSize.array as Float32Array;
+    const plsPos = pulse.positions;
+    const plsA = pulse.alpha;
+    let pulseCount = 0;
 
     // 1) drift, rotate (yaw→pitch), perspective-project to screen px
     for (let i = 0; i < NODE_COUNT; i++) {
@@ -475,6 +523,17 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
           lp[o + 3] = st.sx[j]; lp[o + 4] = st.sy[j]; lp[o + 5] = 0;
           la[seg * 2] = a; la[seg * 2 + 1] = a;
           seg++;
+          // a bead of energy flows along every 3rd link
+          if (((i + j) % 3) === 0 && pulseCount < MAX_PULSE) {
+            const phase = ((i * 7 + j * 13) % 100) / 100;
+            const s = (t * 0.5 + phase) % 1;
+            const po = pulseCount * 3;
+            plsPos[po] = st.sx[i] + (st.sx[j] - st.sx[i]) * s;
+            plsPos[po + 1] = st.sy[i] + (st.sy[j] - st.sy[i]) * s;
+            plsPos[po + 2] = 0;
+            plsA[pulseCount] = Math.min(a * 2.4, 0.7);
+            pulseCount++;
+          }
         }
       }
     }
@@ -491,6 +550,16 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
           lp[o + 3] = st.sx[i]; lp[o + 4] = st.sy[i]; lp[o + 5] = 0;
           la[seg * 2] = a; la[seg * 2 + 1] = a;
           seg++;
+          // energy rushes IN along each cursor thread toward the pointer
+          if (pulseCount < MAX_PULSE) {
+            const s = (t * 0.9 + i * 0.11) % 1;
+            const po = pulseCount * 3;
+            plsPos[po] = st.sx[i] + (p.wx - st.sx[i]) * s;
+            plsPos[po + 1] = st.sy[i] + (p.wy - st.sy[i]) * s;
+            plsPos[po + 2] = 0;
+            plsA[pulseCount] = Math.min(a * 2.2, 0.85);
+            pulseCount++;
+          }
         }
       }
     }
@@ -501,9 +570,18 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
     lns.geometry.attributes.position.needsUpdate = true;
     lns.geometry.attributes.aAlpha.needsUpdate = true;
     lns.geometry.setDrawRange(0, seg * 2);
+
+    const pls = pulsesRef.current;
+    if (pls) {
+      pls.geometry.attributes.position.needsUpdate = true;
+      pls.geometry.attributes.aAlpha.needsUpdate = true;
+      pls.geometry.setDrawRange(0, pulseCount);
+    }
+    if (pulseMat.current) pulseMat.current.uniforms.uDpr.value = gl.getPixelRatio();
   });
 
   const nodeUniforms = useMemo(() => ({ uTime: { value: 0 }, uDpr: { value: 1 } }), []);
+  const pulseUniforms = useMemo(() => ({ uDpr: { value: 1 } }), []);
 
   return (
     <>
@@ -534,6 +612,23 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
           uniforms={nodeUniforms}
           vertexShader={NODE_VERT}
           fragmentShader={NODE_FRAG}
+          transparent
+          depthTest={false}
+          depthWrite={false}
+          blending={THREE.NormalBlending}
+        />
+      </points>
+
+      <points ref={pulsesRef} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[pulse.positions, 3]} />
+          <bufferAttribute attach="attributes-aAlpha" args={[pulse.alpha, 1]} />
+        </bufferGeometry>
+        <shaderMaterial
+          ref={pulseMat}
+          uniforms={pulseUniforms}
+          vertexShader={PULSE_VERT}
+          fragmentShader={PULSE_FRAG}
           transparent
           depthTest={false}
           depthWrite={false}
