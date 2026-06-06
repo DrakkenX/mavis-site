@@ -166,9 +166,9 @@ const FIELD_FRAG = /* glsl */ `
     // cursor warmth bloom — a wide soft halo + a brighter core
     float halo = smoothstep(0.55, 0.0, dC) * uActive;
     float core = smoothstep(0.22, 0.0, dC) * uActive;
-    col = mix(col, PEACH, halo * 0.26);
-    col = mix(col, GOLD, core * 0.42);
-    col += GOLD * core * core * 0.50;
+    col = mix(col, PEACH, halo * 0.18);
+    col = mix(col, GOLD, core * 0.20);
+    col += GOLD * core * core * 0.22;
 
     // soft vignette for depth (volumetric haze feel)
     float vig = smoothstep(1.15, 0.32, dc);
@@ -256,8 +256,11 @@ function Field({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced
   );
 }
 
-// ── Motes: a sparse GPU points field, ambient drift + curious gather ─────────
-const MOTE_VERT = /* glsl */ `
+// ── Plexus: a drifting 3D constellation network (igloo-style) ────────────────
+// Warm glowing nodes drift with depth/parallax, link to nearby neighbours with
+// glowing threads, and reach out to the cursor — nodes near the pointer brighten,
+// spiral in, and string lines to it. The signature interactive-3D background.
+const NODE_VERT = /* glsl */ `
   attribute float aSize;
   attribute float aSeed;
   attribute float aBright;
@@ -265,19 +268,17 @@ const MOTE_VERT = /* glsl */ `
   uniform float uDpr;
   varying float vAlpha;
   varying vec3  vCol;
-  const vec3 M_PEACH = vec3(1.0, 0.72, 0.55);
-  const vec3 M_GOLD  = vec3(1.0, 0.84, 0.52);
+  const vec3 N_PEACH = vec3(0.80, 0.56, 0.34);
+  const vec3 N_GOLD  = vec3(0.72, 0.49, 0.22);
   void main(){
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_Position = projectionMatrix * mv;
-    float tw = 0.55 + 0.45 * sin(uTime * 1.4 + aSeed * 6.2831);
-    vAlpha = tw * (0.36 + aBright); // base softness + proximity brightening
-    vCol = mix(M_PEACH, M_GOLD, aSeed);
-    gl_PointSize = aSize * uDpr * (1.0 + aBright * 0.7);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    float tw = 0.6 + 0.4 * sin(uTime * 1.3 + aSeed * 6.2831);
+    vAlpha = tw * (0.42 + aBright);
+    vCol = mix(N_PEACH, N_GOLD, aSeed);
+    gl_PointSize = aSize * uDpr * (1.0 + aBright * 0.8);
   }
 `;
-
-const MOTE_FRAG = /* glsl */ `
+const NODE_FRAG = /* glsl */ `
   precision mediump float;
   varying float vAlpha;
   varying vec3  vCol;
@@ -289,162 +290,252 @@ const MOTE_FRAG = /* glsl */ `
   }
 `;
 
-const MOTE_COUNT = 200;
+// Lines carry a per-vertex alpha (fades with link distance); warm thread colour.
+const LINE_VERT = /* glsl */ `
+  attribute float aAlpha;
+  varying float vA;
+  void main(){
+    vA = aAlpha;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const LINE_FRAG = /* glsl */ `
+  precision mediump float;
+  varying float vA;
+  const vec3 L_COL = vec3(0.66, 0.47, 0.25);
+  void main(){ gl_FragColor = vec4(L_COL, vA); }
+`;
 
-function Motes({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced: boolean }) {
+const NODE_COUNT = 90;
+const MAX_SEG = 800; // hard cap on rendered link segments / frame
+
+function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduced: boolean }) {
   const points = useRef<THREE.Points>(null);
-  const mat = useRef<THREE.ShaderMaterial>(null);
+  const linesRef = useRef<THREE.LineSegments>(null);
+  const nodeMat = useRef<THREE.ShaderMaterial>(null);
   const { size, gl, invalidate } = useThree();
 
-  // Per-mote CPU state (not uploaded — drives the buffers each frame).
-  const state = useMemo(() => {
-    const px = new Float32Array(MOTE_COUNT);
-    const py = new Float32Array(MOTE_COUNT);
-    const dvx = new Float32Array(MOTE_COUNT); // ambient drift
-    const dvy = new Float32Array(MOTE_COUNT);
-    const svx = new Float32Array(MOTE_COUNT); // decaying cursor steer
-    const svy = new Float32Array(MOTE_COUNT);
-    const bright = new Float32Array(MOTE_COUNT);
-    for (let i = 0; i < MOTE_COUNT; i++) {
-      dvx[i] = (Math.random() - 0.5) * 0.22;
-      dvy[i] = 0.05 + Math.random() * 0.18; // gentle upward bias (pollen rising)
+  // Per-node CPU state.
+  const st = useMemo(() => {
+    const px = new Float32Array(NODE_COUNT);
+    const py = new Float32Array(NODE_COUNT);
+    const vx = new Float32Array(NODE_COUNT);
+    const vy = new Float32Array(NODE_COUNT);
+    const sx = new Float32Array(NODE_COUNT); // decaying cursor steer
+    const sy = new Float32Array(NODE_COUNT);
+    const depth = new Float32Array(NODE_COUNT); // 0 far → 1 near
+    const bright = new Float32Array(NODE_COUNT);
+    const dx = new Float32Array(NODE_COUNT); // final drawn pos (with parallax)
+    const dy = new Float32Array(NODE_COUNT);
+    for (let i = 0; i < NODE_COUNT; i++) {
+      vx[i] = (Math.random() - 0.5) * 0.25;
+      vy[i] = (Math.random() - 0.5) * 0.25;
+      depth[i] = Math.random();
     }
-    return { px, py, dvx, dvy, svx, svy, bright, inited: false };
+    return { px, py, vx, vy, sx, sy, depth, bright, dx, dy, inited: false };
   }, []);
 
-  // Static buffers (size/seed) + the live buffers (position/aBright).
-  const { positions, sizes, seeds, bright } = useMemo(() => {
-    const positions = new Float32Array(MOTE_COUNT * 3);
-    const sizes = new Float32Array(MOTE_COUNT);
-    const seeds = new Float32Array(MOTE_COUNT);
-    const bright = new Float32Array(MOTE_COUNT);
-    for (let i = 0; i < MOTE_COUNT; i++) {
-      // wide size spread = depth (tiny far motes → big soft near ones)
-      sizes[i] = 3.5 + Math.pow(Math.random(), 1.7) * 17;
+  // Node GPU buffers.
+  const node = useMemo(() => {
+    const positions = new Float32Array(NODE_COUNT * 3);
+    const sizes = new Float32Array(NODE_COUNT);
+    const seeds = new Float32Array(NODE_COUNT);
+    const bright = new Float32Array(NODE_COUNT);
+    for (let i = 0; i < NODE_COUNT; i++) {
+      sizes[i] = 3.0 + st.depth[i] * 9.0; // near nodes bigger
       seeds[i] = Math.random();
     }
     return { positions, sizes, seeds, bright };
-  }, []);
+  }, [st]);
+
+  // Line GPU buffers (fixed cap, drawRange updated each frame).
+  const line = useMemo(
+    () => ({
+      positions: new Float32Array(MAX_SEG * 2 * 3),
+      alpha: new Float32Array(MAX_SEG * 2),
+    }),
+    []
+  );
 
   const spread = (w: number, h: number) => {
-    for (let i = 0; i < MOTE_COUNT; i++) {
-      state.px[i] = (Math.random() - 0.5) * w;
-      state.py[i] = (Math.random() - 0.5) * h;
-      positions[i * 3] = state.px[i];
-      positions[i * 3 + 1] = state.py[i];
-      positions[i * 3 + 2] = 0;
+    for (let i = 0; i < NODE_COUNT; i++) {
+      st.px[i] = (Math.random() - 0.5) * w;
+      st.py[i] = (Math.random() - 0.5) * h;
+      st.dx[i] = st.px[i];
+      st.dy[i] = st.py[i];
+      node.positions[i * 3] = st.px[i];
+      node.positions[i * 3 + 1] = st.py[i];
+      node.positions[i * 3 + 2] = 0;
     }
-    state.inited = true;
+    st.inited = true;
   };
 
   useEffect(() => {
     if (!reduced) return;
-    if (size.width > 0 && !state.inited) spread(size.width, size.height);
-    if (mat.current) {
-      mat.current.uniforms.uTime.value = 14.0;
-      mat.current.uniforms.uDpr.value = gl.getPixelRatio();
+    if (size.width > 0 && !st.inited) spread(size.width, size.height);
+    if (nodeMat.current) {
+      nodeMat.current.uniforms.uTime.value = 14.0;
+      nodeMat.current.uniforms.uDpr.value = gl.getPixelRatio();
     }
-    if (points.current) {
-      points.current.geometry.attributes.position.needsUpdate = true;
-    }
+    if (points.current) points.current.geometry.attributes.position.needsUpdate = true;
     invalidate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduced, size.width, size.height]);
 
-  const RADIUS = 240;
-  const STEER = 0.55;
+  const STEER = 0.16;
 
   useFrame(({ clock }) => {
     const pts = points.current;
-    const m = mat.current;
-    if (!pts || !m) return;
+    const lns = linesRef.current;
+    const m = nodeMat.current;
+    if (!pts || !lns || !m) return;
 
     const w = size.width;
     const h = size.height;
     if (w === 0) return;
-    if (!state.inited) spread(w, h);
+    if (!st.inited) spread(w, h);
 
     m.uniforms.uTime.value = reduced ? 14.0 : clock.elapsedTime;
     m.uniforms.uDpr.value = gl.getPixelRatio();
-    if (reduced) return; // static field
+    if (reduced) return;
 
     const hw = w / 2;
     const hh = h / 2;
-    const M = 30;
+    const M = 40;
     const p = ptr.current;
-    const posArr = pts.geometry.attributes.position.array as Float32Array;
-    const brArr = pts.geometry.attributes.aBright.array as Float32Array;
+    const active = p.active;
 
-    for (let i = 0; i < MOTE_COUNT; i++) {
-      // decaying cursor steer
-      state.svx[i] *= 0.9;
-      state.svy[i] *= 0.9;
+    // link distances scale with viewport
+    const LINK = Math.min(Math.max(Math.min(w, h) * 0.16, 120), 230);
+    const LINK2 = LINK * LINK;
+    const CURSOR_LINK = LINK * 1.7;
+    const CURSOR_LINK2 = CURSOR_LINK * CURSOR_LINK;
+    const GATHER = LINK * 1.4;
+
+    const nodePos = pts.geometry.attributes.position.array as Float32Array;
+    const nodeBr = pts.geometry.attributes.aBright.array as Float32Array;
+
+    // 1) integrate node motion + compute final drawn positions (with parallax)
+    for (let i = 0; i < NODE_COUNT; i++) {
+      st.sx[i] *= 0.9;
+      st.sy[i] *= 0.9;
 
       let targetBright = 0;
-      if (p.active > 0.01) {
-        const dx = p.wx - state.px[i];
-        const dy = p.wy - state.py[i];
-        const dist = Math.hypot(dx, dy) || 1;
-        if (dist < RADIUS) {
-          const f = (1 - dist / RADIUS) * p.active; // 0..1
-          const ux = dx / dist;
-          const uy = dy / dist;
-          // inward pull + tangential swirl → motes spiral in around the cursor
-          state.svx[i] += (ux * STEER - uy * STEER * 0.6) * f;
-          state.svy[i] += (uy * STEER + ux * STEER * 0.6) * f;
-          targetBright = f * 0.85;
+      if (active > 0.01) {
+        const ddx = p.wx - st.px[i];
+        const ddy = p.wy - st.py[i];
+        const dist = Math.hypot(ddx, ddy) || 1;
+        if (dist < GATHER) {
+          const f = (1 - dist / GATHER) * active;
+          const ux = ddx / dist;
+          const uy = ddy / dist;
+          st.sx[i] += (ux * STEER - uy * STEER * 0.5) * f; // pull + swirl
+          st.sy[i] += (uy * STEER + ux * STEER * 0.5) * f;
+          targetBright = f;
         }
       }
 
-      // integrate: constant ambient drift + decaying steer
-      state.px[i] += state.dvx[i] + state.svx[i];
-      state.py[i] += state.dvy[i] + state.svy[i];
+      st.px[i] += st.vx[i] + st.sx[i];
+      st.py[i] += st.vy[i] + st.sy[i];
 
-      // soft wrap
-      if (state.px[i] < -hw - M) state.px[i] = hw + M;
-      else if (state.px[i] > hw + M) state.px[i] = -hw - M;
-      if (state.py[i] < -hh - M) state.py[i] = hh + M;
-      else if (state.py[i] > hh + M) state.py[i] = -hh - M;
+      if (st.px[i] < -hw - M) st.px[i] = hw + M;
+      else if (st.px[i] > hw + M) st.px[i] = -hw - M;
+      if (st.py[i] < -hh - M) st.py[i] = hh + M;
+      else if (st.py[i] > hh + M) st.py[i] = -hh - M;
 
-      // ease brightness toward target (brighten on approach, fade on disperse)
-      state.bright[i] += (targetBright - state.bright[i]) * 0.08;
+      st.bright[i] += (targetBright - st.bright[i]) * 0.08;
 
-      // depth parallax: nearer motes (bigger seed) drift more with the cursor → 3D
-      const depth = seeds[i];
-      posArr[i * 3] = state.px[i] + p.wx * depth * 0.03;
-      posArr[i * 3 + 1] = state.py[i] + p.wy * depth * 0.03;
-      posArr[i * 3 + 2] = 0;
-      brArr[i] = state.bright[i];
+      const par = st.depth[i]; // parallax with cursor → depth
+      st.dx[i] = st.px[i] + p.wx * par * 0.04;
+      st.dy[i] = st.py[i] + p.wy * par * 0.04;
+
+      nodePos[i * 3] = st.dx[i];
+      nodePos[i * 3 + 1] = st.dy[i];
+      nodePos[i * 3 + 2] = 0;
+      nodeBr[i] = st.bright[i];
+    }
+
+    // 2) build link segments (node↔node within LINK, then cursor↔nearby nodes)
+    const lp = line.positions;
+    const la = line.alpha;
+    let seg = 0;
+    for (let i = 0; i < NODE_COUNT && seg < MAX_SEG; i++) {
+      for (let j = i + 1; j < NODE_COUNT && seg < MAX_SEG; j++) {
+        const ax = st.dx[i] - st.dx[j];
+        const ay = st.dy[i] - st.dy[j];
+        const d2 = ax * ax + ay * ay;
+        if (d2 < LINK2) {
+          const a = (1 - Math.sqrt(d2) / LINK) * 0.26;
+          const o = seg * 6;
+          lp[o] = st.dx[i]; lp[o + 1] = st.dy[i]; lp[o + 2] = 0;
+          lp[o + 3] = st.dx[j]; lp[o + 4] = st.dy[j]; lp[o + 5] = 0;
+          la[seg * 2] = a; la[seg * 2 + 1] = a;
+          seg++;
+        }
+      }
+    }
+    // cursor reaches out to nearby nodes (brighter threads)
+    if (active > 0.01) {
+      for (let i = 0; i < NODE_COUNT && seg < MAX_SEG; i++) {
+        const ax = p.wx - st.dx[i];
+        const ay = p.wy - st.dy[i];
+        const d2 = ax * ax + ay * ay;
+        if (d2 < CURSOR_LINK2) {
+          const a = (1 - Math.sqrt(d2) / CURSOR_LINK) * 0.5 * active;
+          const o = seg * 6;
+          lp[o] = p.wx; lp[o + 1] = p.wy; lp[o + 2] = 0;
+          lp[o + 3] = st.dx[i]; lp[o + 4] = st.dy[i]; lp[o + 5] = 0;
+          la[seg * 2] = a; la[seg * 2 + 1] = a;
+          seg++;
+        }
+      }
     }
 
     pts.geometry.attributes.position.needsUpdate = true;
     pts.geometry.attributes.aBright.needsUpdate = true;
+    lns.geometry.attributes.position.needsUpdate = true;
+    lns.geometry.attributes.aAlpha.needsUpdate = true;
+    lns.geometry.setDrawRange(0, seg * 2);
   });
 
-  const uniforms = useMemo(
-    () => ({ uTime: { value: 0 }, uDpr: { value: 1 } }),
-    []
-  );
+  const nodeUniforms = useMemo(() => ({ uTime: { value: 0 }, uDpr: { value: 1 } }), []);
 
   return (
-    <points ref={points} frustumCulled={false}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
-        <bufferAttribute attach="attributes-aSeed" args={[seeds, 1]} />
-        <bufferAttribute attach="attributes-aBright" args={[bright, 1]} />
-      </bufferGeometry>
-      <shaderMaterial
-        ref={mat}
-        uniforms={uniforms}
-        vertexShader={MOTE_VERT}
-        fragmentShader={MOTE_FRAG}
-        transparent
-        depthTest={false}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
+    <>
+      <lineSegments ref={linesRef} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[line.positions, 3]} />
+          <bufferAttribute attach="attributes-aAlpha" args={[line.alpha, 1]} />
+        </bufferGeometry>
+        <shaderMaterial
+          vertexShader={LINE_VERT}
+          fragmentShader={LINE_FRAG}
+          transparent
+          depthTest={false}
+          depthWrite={false}
+          blending={THREE.NormalBlending}
+        />
+      </lineSegments>
+
+      <points ref={points} frustumCulled={false}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[node.positions, 3]} />
+          <bufferAttribute attach="attributes-aSize" args={[node.sizes, 1]} />
+          <bufferAttribute attach="attributes-aSeed" args={[node.seeds, 1]} />
+          <bufferAttribute attach="attributes-aBright" args={[node.bright, 1]} />
+        </bufferGeometry>
+        <shaderMaterial
+          ref={nodeMat}
+          uniforms={nodeUniforms}
+          vertexShader={NODE_VERT}
+          fragmentShader={NODE_FRAG}
+          transparent
+          depthTest={false}
+          depthWrite={false}
+          blending={THREE.NormalBlending}
+        />
+      </points>
+    </>
   );
 }
 
@@ -476,7 +567,7 @@ function Scene({ reduced, finePointer }: { reduced: boolean; finePointer: boolea
   return (
     <>
       <Field ptr={ptr} reduced={reduced} />
-      <Motes ptr={ptr} reduced={reduced} />
+      <Plexus ptr={ptr} reduced={reduced} />
     </>
   );
 }
