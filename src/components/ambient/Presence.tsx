@@ -315,38 +315,44 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
   const nodeMat = useRef<THREE.ShaderMaterial>(null);
   const { size, gl, invalidate } = useThree();
 
-  // Per-node CPU state.
+  // Per-node CPU state — a true 3D point cloud (x,y,z), rotated + projected each
+  // frame. rX/rY/rZ = rotated world coords; sx/sy = projected screen px.
   const st = useMemo(() => {
-    const px = new Float32Array(NODE_COUNT);
-    const py = new Float32Array(NODE_COUNT);
+    const x = new Float32Array(NODE_COUNT);
+    const y = new Float32Array(NODE_COUNT);
+    const z = new Float32Array(NODE_COUNT);
     const vx = new Float32Array(NODE_COUNT);
     const vy = new Float32Array(NODE_COUNT);
-    const sx = new Float32Array(NODE_COUNT); // decaying cursor steer
+    const vz = new Float32Array(NODE_COUNT);
+    const rX = new Float32Array(NODE_COUNT);
+    const rY = new Float32Array(NODE_COUNT);
+    const rZ = new Float32Array(NODE_COUNT);
+    const sx = new Float32Array(NODE_COUNT);
     const sy = new Float32Array(NODE_COUNT);
-    const depth = new Float32Array(NODE_COUNT); // 0 far → 1 near
     const bright = new Float32Array(NODE_COUNT);
-    const dx = new Float32Array(NODE_COUNT); // final drawn pos (with parallax)
-    const dy = new Float32Array(NODE_COUNT);
     for (let i = 0; i < NODE_COUNT; i++) {
-      vx[i] = (Math.random() - 0.5) * 0.25;
-      vy[i] = (Math.random() - 0.5) * 0.25;
-      depth[i] = Math.random();
+      vx[i] = (Math.random() - 0.5) * 0.18;
+      vy[i] = (Math.random() - 0.5) * 0.18;
+      vz[i] = (Math.random() - 0.5) * 0.18;
     }
-    return { px, py, vx, vy, sx, sy, depth, bright, dx, dy, inited: false };
+    return { x, y, z, vx, vy, vz, rX, rY, rZ, sx, sy, bright, inited: false };
   }, []);
 
-  // Node GPU buffers.
+  // Node GPU buffers. aSize is rewritten each frame (perspective scales it).
   const node = useMemo(() => {
     const positions = new Float32Array(NODE_COUNT * 3);
     const sizes = new Float32Array(NODE_COUNT);
+    const baseSizes = new Float32Array(NODE_COUNT);
     const seeds = new Float32Array(NODE_COUNT);
     const bright = new Float32Array(NODE_COUNT);
     for (let i = 0; i < NODE_COUNT; i++) {
-      sizes[i] = 3.0 + st.depth[i] * 9.0; // near nodes bigger
+      // a few brighter "stars" among soft small nodes
+      baseSizes[i] = (Math.random() < 0.18 ? 5.5 : 2.6) + Math.random() * 3.0;
+      sizes[i] = baseSizes[i];
       seeds[i] = Math.random();
     }
-    return { positions, sizes, seeds, bright };
-  }, [st]);
+    return { positions, sizes, baseSizes, seeds, bright };
+  }, []);
 
   // Line GPU buffers (fixed cap, drawRange updated each frame).
   const line = useMemo(
@@ -358,13 +364,15 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
   );
 
   const spread = (w: number, h: number) => {
+    const W = w * 0.62, H = h * 0.62, Z = Math.min(w, h) * 0.5;
     for (let i = 0; i < NODE_COUNT; i++) {
-      st.px[i] = (Math.random() - 0.5) * w;
-      st.py[i] = (Math.random() - 0.5) * h;
-      st.dx[i] = st.px[i];
-      st.dy[i] = st.py[i];
-      node.positions[i * 3] = st.px[i];
-      node.positions[i * 3 + 1] = st.py[i];
+      st.x[i] = (Math.random() - 0.5) * 2 * W;
+      st.y[i] = (Math.random() - 0.5) * 2 * H;
+      st.z[i] = (Math.random() - 0.5) * 2 * Z;
+      st.sx[i] = st.x[i];
+      st.sy[i] = st.y[i];
+      node.positions[i * 3] = st.x[i];
+      node.positions[i * 3 + 1] = st.y[i];
       node.positions[i * 3 + 2] = 0;
     }
     st.inited = true;
@@ -382,8 +390,6 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduced, size.width, size.height]);
 
-  const STEER = 0.16;
-
   useFrame(({ clock }) => {
     const pts = points.current;
     const lns = linesRef.current;
@@ -399,92 +405,90 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
     m.uniforms.uDpr.value = gl.getPixelRatio();
     if (reduced) return;
 
-    const hw = w / 2;
-    const hh = h / 2;
-    const M = 40;
+    const t = clock.elapsedTime;
     const p = ptr.current;
-    const active = p.active;
+    const W = w * 0.62, H = h * 0.62, Z = Math.min(w, h) * 0.5;
+    const focal = Math.max(w, h) * 0.95;
 
-    // link distances scale with viewport
-    const LINK = Math.min(Math.max(Math.min(w, h) * 0.16, 120), 230);
+    // the whole cloud slowly turns AND leans toward the cursor → real 3D parallax
+    const yaw = t * 0.05 + (p.uvX - 0.5) * 0.7;
+    const pitch = (p.uvY - 0.5) * -0.5;
+    const cyA = Math.cos(yaw), syA = Math.sin(yaw);
+    const cxA = Math.cos(pitch), sxA = Math.sin(pitch);
+    const breath = 1 + 0.02 * Math.sin(t * 0.7); // gentle alive pulse
+
+    const LINK = Math.min(w, h) * 0.22;
     const LINK2 = LINK * LINK;
-    const CURSOR_LINK = LINK * 1.7;
+    const CURSOR_LINK = LINK * 1.6;
     const CURSOR_LINK2 = CURSOR_LINK * CURSOR_LINK;
-    const GATHER = LINK * 1.4;
 
     const nodePos = pts.geometry.attributes.position.array as Float32Array;
     const nodeBr = pts.geometry.attributes.aBright.array as Float32Array;
+    const nodeSz = pts.geometry.attributes.aSize.array as Float32Array;
 
-    // 1) integrate node motion + compute final drawn positions (with parallax)
+    // 1) drift, rotate (yaw→pitch), perspective-project to screen px
     for (let i = 0; i < NODE_COUNT; i++) {
-      st.sx[i] *= 0.9;
-      st.sy[i] *= 0.9;
+      st.x[i] += st.vx[i]; st.y[i] += st.vy[i]; st.z[i] += st.vz[i];
+      if (st.x[i] < -W) st.x[i] = W; else if (st.x[i] > W) st.x[i] = -W;
+      if (st.y[i] < -H) st.y[i] = H; else if (st.y[i] > H) st.y[i] = -H;
+      if (st.z[i] < -Z) st.z[i] = Z; else if (st.z[i] > Z) st.z[i] = -Z;
 
-      let targetBright = 0;
-      if (active > 0.01) {
-        const ddx = p.wx - st.px[i];
-        const ddy = p.wy - st.py[i];
-        const dist = Math.hypot(ddx, ddy) || 1;
-        if (dist < GATHER) {
-          const f = (1 - dist / GATHER) * active;
-          const ux = ddx / dist;
-          const uy = ddy / dist;
-          st.sx[i] += (ux * STEER - uy * STEER * 0.5) * f; // pull + swirl
-          st.sy[i] += (uy * STEER + ux * STEER * 0.5) * f;
-          targetBright = f;
-        }
+      const rx = st.x[i] * cyA - st.z[i] * syA;        // yaw about Y
+      const rzz = st.x[i] * syA + st.z[i] * cyA;
+      const ry = st.y[i] * cxA - rzz * sxA;            // pitch about X
+      const rz = st.y[i] * sxA + rzz * cxA;
+      st.rX[i] = rx; st.rY[i] = ry; st.rZ[i] = rz;
+
+      const persp = focal / (focal - rz);              // nearer (rz>0) ⇒ larger
+      const sX = rx * persp * breath;
+      const sY = ry * persp * breath;
+      st.sx[i] = sX; st.sy[i] = sY;
+
+      // brighten nodes near the cursor (screen space)
+      let tb = 0;
+      if (p.active > 0.01) {
+        const dx = p.wx - sX, dy = p.wy - sY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < CURSOR_LINK2) tb = (1 - Math.sqrt(d2) / CURSOR_LINK) * p.active;
       }
+      st.bright[i] += (tb - st.bright[i]) * 0.1;
 
-      st.px[i] += st.vx[i] + st.sx[i];
-      st.py[i] += st.vy[i] + st.sy[i];
-
-      if (st.px[i] < -hw - M) st.px[i] = hw + M;
-      else if (st.px[i] > hw + M) st.px[i] = -hw - M;
-      if (st.py[i] < -hh - M) st.py[i] = hh + M;
-      else if (st.py[i] > hh + M) st.py[i] = -hh - M;
-
-      st.bright[i] += (targetBright - st.bright[i]) * 0.08;
-
-      const par = st.depth[i]; // parallax with cursor → depth
-      st.dx[i] = st.px[i] + p.wx * par * 0.04;
-      st.dy[i] = st.py[i] + p.wy * par * 0.04;
-
-      nodePos[i * 3] = st.dx[i];
-      nodePos[i * 3 + 1] = st.dy[i];
-      nodePos[i * 3 + 2] = 0;
+      nodePos[i * 3] = sX; nodePos[i * 3 + 1] = sY; nodePos[i * 3 + 2] = 0;
       nodeBr[i] = st.bright[i];
+      nodeSz[i] = node.baseSizes[i] * persp; // perspective foreshortening
     }
 
-    // 2) build link segments (node↔node within LINK, then cursor↔nearby nodes)
+    // 2) links by 3D distance, drawn at projected positions
     const lp = line.positions;
     const la = line.alpha;
     let seg = 0;
     for (let i = 0; i < NODE_COUNT && seg < MAX_SEG; i++) {
       for (let j = i + 1; j < NODE_COUNT && seg < MAX_SEG; j++) {
-        const ax = st.dx[i] - st.dx[j];
-        const ay = st.dy[i] - st.dy[j];
-        const d2 = ax * ax + ay * ay;
+        const ax = st.rX[i] - st.rX[j];
+        const ay = st.rY[i] - st.rY[j];
+        const az = st.rZ[i] - st.rZ[j];
+        const d2 = ax * ax + ay * ay + az * az;
         if (d2 < LINK2) {
-          const a = (1 - Math.sqrt(d2) / LINK) * 0.26;
+          const a = (1 - Math.sqrt(d2) / LINK) * 0.24;
           const o = seg * 6;
-          lp[o] = st.dx[i]; lp[o + 1] = st.dy[i]; lp[o + 2] = 0;
-          lp[o + 3] = st.dx[j]; lp[o + 4] = st.dy[j]; lp[o + 5] = 0;
+          lp[o] = st.sx[i]; lp[o + 1] = st.sy[i]; lp[o + 2] = 0;
+          lp[o + 3] = st.sx[j]; lp[o + 4] = st.sy[j]; lp[o + 5] = 0;
           la[seg * 2] = a; la[seg * 2 + 1] = a;
           seg++;
         }
       }
     }
     // cursor reaches out to nearby nodes (brighter threads)
-    if (active > 0.01) {
+    if (p.active > 0.01) {
       for (let i = 0; i < NODE_COUNT && seg < MAX_SEG; i++) {
-        const ax = p.wx - st.dx[i];
-        const ay = p.wy - st.dy[i];
-        const d2 = ax * ax + ay * ay;
+        const dx = p.wx - st.sx[i];
+        const dy = p.wy - st.sy[i];
+        const d2 = dx * dx + dy * dy;
         if (d2 < CURSOR_LINK2) {
-          const a = (1 - Math.sqrt(d2) / CURSOR_LINK) * 0.5 * active;
+          const a = (1 - Math.sqrt(d2) / CURSOR_LINK) * 0.5 * p.active;
           const o = seg * 6;
           lp[o] = p.wx; lp[o + 1] = p.wy; lp[o + 2] = 0;
-          lp[o + 3] = st.dx[i]; lp[o + 4] = st.dy[i]; lp[o + 5] = 0;
+          lp[o + 3] = st.sx[i]; lp[o + 4] = st.sy[i]; lp[o + 5] = 0;
           la[seg * 2] = a; la[seg * 2 + 1] = a;
           seg++;
         }
@@ -493,6 +497,7 @@ function Plexus({ ptr, reduced }: { ptr: React.MutableRefObject<Pointer>; reduce
 
     pts.geometry.attributes.position.needsUpdate = true;
     pts.geometry.attributes.aBright.needsUpdate = true;
+    pts.geometry.attributes.aSize.needsUpdate = true;
     lns.geometry.attributes.position.needsUpdate = true;
     lns.geometry.attributes.aAlpha.needsUpdate = true;
     lns.geometry.setDrawRange(0, seg * 2);
